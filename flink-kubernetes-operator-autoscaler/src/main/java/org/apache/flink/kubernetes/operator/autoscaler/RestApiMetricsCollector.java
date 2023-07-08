@@ -18,6 +18,7 @@
 package org.apache.flink.kubernetes.operator.autoscaler;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.FlinkMetric;
@@ -82,7 +83,7 @@ public class RestApiMetricsCollector extends ScalingMetricCollector {
                 .next()
                 .resolveFromString(StringUtils.join(metrics.keySet(), ","));
 
-        try (var restClient = flinkService.getClusterClient(conf)) {
+        try (RestClusterClient<String> restClient = flinkService.getClusterClient(conf)) {
 
             var responseBody =
                     restClient

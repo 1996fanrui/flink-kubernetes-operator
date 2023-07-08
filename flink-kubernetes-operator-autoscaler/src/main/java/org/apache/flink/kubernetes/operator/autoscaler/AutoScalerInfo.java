@@ -27,11 +27,12 @@ import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
 
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JacksonException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -286,6 +287,7 @@ public class AutoScalerInfo {
         // Set yaml size limit to 10mb
         var loaderOptions = new LoaderOptions();
         loaderOptions.setCodePointLimit(20 * 1024 * 1024);
-        return YAMLFactory.builder().loaderOptions(loaderOptions).build();
+        // TODO flink 1.18 is using jackson 1.14, it supports loaderOptions.
+        return YAMLFactory.builder().build();
     }
 }

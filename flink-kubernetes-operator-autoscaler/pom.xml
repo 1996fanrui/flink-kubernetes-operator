@@ -36,25 +36,45 @@ under the License.
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>io.fabric8</groupId>
-            <artifactId>kubernetes-client</artifactId>
-            <version>${fabric8.version}</version>
-            <scope>provided</scope>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>io.fabric8</groupId>-->
+<!--            <artifactId>kubernetes-client</artifactId>-->
+<!--            <version>${fabric8.version}</version>-->
+<!--            <scope>provided</scope>-->
+<!--        </dependency>-->
+
+<!--        <dependency>-->
+<!--            <groupId>org.apache.flink</groupId>-->
+<!--            <artifactId>flink-kubernetes-operator</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--            <scope>provided</scope>-->
+<!--        </dependency>-->
+
+<!--        <dependency>-->
+<!--            <groupId>org.apache.flink</groupId>-->
+<!--            <artifactId>flink-kubernetes</artifactId>-->
+<!--            <version>${flink.version}</version>-->
+<!--            <scope>provided</scope>-->
+<!--        </dependency>-->
 
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-kubernetes-operator</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-kubernetes</artifactId>
+            <artifactId>flink-runtime</artifactId>
             <version>${flink.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <version>2.15.0</version>
         </dependency>
 
         <dependency>
