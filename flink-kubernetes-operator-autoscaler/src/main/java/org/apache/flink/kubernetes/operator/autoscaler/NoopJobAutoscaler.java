@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.reconciler.deployment;
+package org.apache.flink.kubernetes.operator.autoscaler;
 
-import org.apache.flink.kubernetes.operator.utils.EventRecorder;
+/** An autoscaler implementation which does nothing. */
+public class NoopJobAutoscaler<KEY, INFO> implements JobAutoScaler<KEY, INFO> {
 
-import io.fabric8.kubernetes.client.KubernetesClient;
+    @Override
+    public boolean scale(JobAutoScalerContext<KEY, INFO> context) {
+        return false;
+    }
 
-/** Factory to construct a new autoscaler instance. */
-public interface JobAutoScalerFactory {
+    @Override
+    public void cleanup(JobAutoScalerContext<KEY, INFO> context) {
 
-    JobAutoScaler create(KubernetesClient kubernetesClient, EventRecorder eventRecorder);
+    }
 }

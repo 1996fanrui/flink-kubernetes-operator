@@ -30,10 +30,10 @@ import org.apache.flink.kubernetes.operator.autoscaler.utils.AutoScalerUtils;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import org.apache.commons.math3.stat.StatUtils;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -110,7 +110,7 @@ public class ScalingMetricEvaluator {
                         });
     }
 
-    @NotNull
+    @Nonnull
     private Map<ScalingMetric, EvaluatedScalingMetric> evaluateMetrics(
             Configuration conf,
             HashMap<JobVertexID, Map<ScalingMetric, EvaluatedScalingMetric>> scalingOutput,

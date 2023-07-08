@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.reconciler.deployment;
+package org.apache.flink.kubernetes.operator.autoscaler;
 
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
-import org.apache.flink.kubernetes.operator.controller.FlinkResourceContext;
-
-/** Per-job Autoscaler instance. */
-public interface JobAutoScaler {
+/** The general Autoscaler instance. */
+public interface JobAutoScaler<KEY, INFO> {
 
     /** Called as part of the reconciliation loop. Returns true if this call led to scaling. */
-    boolean scale(FlinkResourceContext<? extends AbstractFlinkResource<?, ?>> ctx);
+    boolean scale(JobAutoScalerContext<KEY, INFO> context);
 
     /** Called when the custom resource is deleted. */
-    void cleanup(AbstractFlinkResource<?, ?> cr);
+    void cleanup(JobAutoScalerContext<KEY, INFO> context);
 }

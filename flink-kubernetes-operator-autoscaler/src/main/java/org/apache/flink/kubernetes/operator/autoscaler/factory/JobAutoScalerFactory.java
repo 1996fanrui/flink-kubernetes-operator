@@ -15,9 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.autoscaler;
+package org.apache.flink.kubernetes.operator.autoscaler.factory;
 
-import org.apache.flink.kubernetes.operator.autoscaler.factory.NoopJobAutoscalerFactory;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScaler;
+import org.apache.flink.kubernetes.operator.autoscaler.event.AutoScalerHandler;
 
-/** Dummy autoscaler to test the plugin loading for the autoscaler. */
-public class TestingAutoscalerFactory<CR> extends NoopJobAutoscalerFactory<CR> {}
+/** Factory to construct a new autoscaler instance. */
+public interface JobAutoScalerFactory<KEY, INFO> {
+
+    JobAutoScaler<KEY, INFO> create(AutoScalerHandler<KEY, INFO> autoScalerHandler);
+}
