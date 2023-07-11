@@ -17,6 +17,8 @@
 
 package org.apache.flink.kubernetes.operator.reconciler.deployment;
 
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScaler;
 import org.apache.flink.kubernetes.operator.utils.EventRecorder;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -24,5 +26,5 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 /** Factory to construct a new autoscaler instance. */
 public interface JobAutoScalerFactory {
 
-    JobAutoScaler create(KubernetesClient kubernetesClient, EventRecorder eventRecorder);
+    JobAutoScaler<ResourceID> create(KubernetesClient kubernetesClient, EventRecorder eventRecorder);
 }

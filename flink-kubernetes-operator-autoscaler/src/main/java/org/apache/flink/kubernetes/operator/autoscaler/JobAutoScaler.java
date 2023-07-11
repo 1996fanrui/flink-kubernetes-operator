@@ -21,11 +21,11 @@ import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.controller.FlinkResourceContext;
 
 /** Per-job Autoscaler instance. */
-public interface JobAutoScaler {
+public interface JobAutoScaler<KEY> {
 
     /** Called as part of the reconciliation loop. Returns true if this call led to scaling. */
-    boolean scale(FlinkResourceContext<? extends AbstractFlinkResource<?, ?>> ctx);
+    boolean scale(JobAutoScalerContext<KEY> context);
 
     /** Called when the custom resource is deleted. */
-    void cleanup(AbstractFlinkResource<?, ?> cr);
+    void cleanup(JobAutoScalerContext<KEY> context);
 }

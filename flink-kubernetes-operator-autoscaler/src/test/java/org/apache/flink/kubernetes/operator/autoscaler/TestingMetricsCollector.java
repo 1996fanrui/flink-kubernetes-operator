@@ -38,7 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** Testing {@link ScalingMetricCollector} implementation. */
-public class TestingMetricsCollector extends ScalingMetricCollector {
+public class TestingMetricsCollector extends ScalingMetricCollector<String> {
 
     @Setter private JobTopology jobTopology;
 

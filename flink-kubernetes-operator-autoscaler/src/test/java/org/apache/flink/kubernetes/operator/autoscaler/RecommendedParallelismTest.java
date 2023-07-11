@@ -70,7 +70,7 @@ public class RecommendedParallelismTest extends OperatorTestBase {
     private FlinkDeployment app;
     private JobVertexID source, sink;
 
-    private JobAutoScalerImpl autoscaler;
+    private AbstractJobAutoScaler autoscaler;
 
     private EventCollector eventCollector = new EventCollector();
 
@@ -115,7 +115,7 @@ public class RecommendedParallelismTest extends OperatorTestBase {
         app.getStatus().getReconciliationStatus().markReconciledSpecAsStable();
 
         autoscaler =
-                new JobAutoScalerImpl(
+                new AbstractJobAutoScaler(
                         kubernetesClient,
                         metricsCollector,
                         evaluator,

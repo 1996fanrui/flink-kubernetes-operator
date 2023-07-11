@@ -33,6 +33,7 @@ import org.apache.flink.kubernetes.operator.api.status.JobManagerDeploymentStatu
 import org.apache.flink.kubernetes.operator.api.status.ReconciliationState;
 import org.apache.flink.kubernetes.operator.api.status.Savepoint;
 import org.apache.flink.kubernetes.operator.api.status.SavepointTriggerType;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScaler;
 import org.apache.flink.kubernetes.operator.config.KubernetesOperatorConfigOptions;
 import org.apache.flink.kubernetes.operator.controller.FlinkResourceContext;
 import org.apache.flink.kubernetes.operator.reconciler.Reconciler;
@@ -56,6 +57,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 
 /**
  * Base class for all Flink resource reconcilers. It contains the general flow of reconciling Flink
@@ -73,7 +75,7 @@ public abstract class AbstractFlinkResourceReconciler<
     protected final EventRecorder eventRecorder;
     protected final StatusRecorder<CR, STATUS> statusRecorder;
     protected final KubernetesClient kubernetesClient;
-    protected final JobAutoScaler resourceScaler;
+    protected final JobAutoScaler<ResourceID> resourceScaler;
 
     public static final String MSG_SUSPENDED = "Suspending existing deployment.";
     public static final String MSG_SPEC_CHANGED =
@@ -197,7 +199,7 @@ public abstract class AbstractFlinkResourceReconciler<
                     EventRecorder.Component.JobManagerDeployment,
                     MSG_ROLLBACK);
         } else if (!reconcileOtherChanges(ctx)) {
-            if (!resourceScaler.scale(ctx)) {
+            if (!resourceScaler.scale(ctx.getJobAutoScalerContext())) {
                 LOG.info("Resource fully reconciled, nothing to do...");
             }
         }
@@ -276,7 +278,7 @@ public abstract class AbstractFlinkResourceReconciler<
 
     @Override
     public DeleteControl cleanup(FlinkResourceContext<CR> ctx) {
-        resourceScaler.cleanup(ctx.getResource());
+        resourceScaler.cleanup(ctx.getJobAutoScalerContext());
         return cleanupInternal(ctx);
     }
 

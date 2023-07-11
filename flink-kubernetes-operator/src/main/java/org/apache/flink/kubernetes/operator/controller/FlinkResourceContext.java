@@ -17,10 +17,13 @@
 
 package org.apache.flink.kubernetes.operator.controller;
 
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.api.spec.AbstractFlinkSpec;
 import org.apache.flink.kubernetes.operator.api.spec.KubernetesDeploymentMode;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScalerContext;
 import org.apache.flink.kubernetes.operator.metrics.KubernetesResourceMetricGroup;
 import org.apache.flink.kubernetes.operator.service.FlinkService;
 
@@ -37,6 +40,17 @@ public abstract class FlinkResourceContext<CR extends AbstractFlinkResource<?, ?
     @Getter private final KubernetesResourceMetricGroup resourceMetricGroup;
 
     private Configuration observeConfig;
+
+    public JobAutoScalerContext<ResourceID> getJobAutoScalerContext() {
+        Configuration conf = getObserveConfig();
+        JobID jobId = JobID.fromHexString(getResource().getStatus().getJobStatus().getJobId());
+        return new JobAutoScalerContext<>(
+                ResourceID.fromResource(resource),
+                jobId,
+                conf,
+                getResourceMetricGroup(),
+                () -> getFlinkService().getClusterClient(conf));
+    }
 
     /**
      * Get the config that is currently deployed for the resource spec. The returned config may be

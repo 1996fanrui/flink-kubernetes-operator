@@ -22,7 +22,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.autoscaler.config.AutoScalerOptions;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.CollectedMetricHistory;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.CollectedMetrics;
@@ -30,7 +29,6 @@ import org.apache.flink.kubernetes.operator.autoscaler.metrics.FlinkMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetrics;
 import org.apache.flink.kubernetes.operator.autoscaler.topology.JobTopology;
-import org.apache.flink.kubernetes.operator.service.FlinkService;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.JobIDPathParameter;
@@ -41,7 +39,6 @@ import org.apache.flink.runtime.rest.messages.job.metrics.AggregatedSubtaskMetri
 import org.apache.flink.runtime.rest.messages.job.metrics.AggregatedSubtaskMetricsParameters;
 import org.apache.flink.util.Preconditions;
 
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,49 +60,45 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Metric collector using flink rest api. */
-public abstract class ScalingMetricCollector {
+public abstract class ScalingMetricCollector<KEY> {
     private static final Logger LOG = LoggerFactory.getLogger(ScalingMetricCollector.class);
 
-    private final Map<ResourceID, Tuple2<Long, Map<JobVertexID, Map<String, FlinkMetric>>>>
+    private final Map<KEY, Tuple2<Long, Map<JobVertexID, Map<String, FlinkMetric>>>>
             availableVertexMetricNames = new ConcurrentHashMap<>();
 
-    private final Map<ResourceID, SortedMap<Instant, CollectedMetrics>> histories =
+    private final Map<KEY, SortedMap<Instant, CollectedMetrics>> histories =
             new ConcurrentHashMap<>();
 
-    private final Map<ResourceID, JobTopology> topologies = new ConcurrentHashMap<>();
+    private final Map<KEY, JobTopology> topologies = new ConcurrentHashMap<>();
 
     private Clock clock = Clock.systemDefaultZone();
 
     public CollectedMetricHistory updateMetrics(
-            AbstractFlinkResource<?, ?> cr,
+            JobAutoScalerContext<KEY> context,
             AutoScalerInfo autoscalerInfo,
-            FlinkService flinkService,
             Configuration conf)
             throws Exception {
-
-        var resourceID = ResourceID.fromResource(cr);
-        var jobId = JobID.fromHexString(cr.getStatus().getJobStatus().getJobId());
 
         var now = clock.instant();
 
         var metricHistory =
-                histories.computeIfAbsent(resourceID, (k) -> autoscalerInfo.getMetricHistory());
+                histories.computeIfAbsent(context.getJobKey(), (k) -> autoscalerInfo.getMetricHistory());
 
         // The timestamp of the first metric observation marks the start
         // If we haven't collected any metrics, we are starting now
         var metricCollectionStartTs = metricHistory.isEmpty() ? now : metricHistory.firstKey();
 
-        var jobDetailsInfo = flinkService.getJobDetailsInfo(jobId, conf);
+        var jobDetailsInfo = flinkService.getJobDetailsInfo(context.getJobID(), conf);
         var jobUpdateTs = getJobUpdateTs(jobDetailsInfo);
         if (jobUpdateTs.isAfter(metricCollectionStartTs)) {
             LOG.info("Job updated at {}. Clearing metrics.", jobUpdateTs);
             autoscalerInfo.clearMetricHistory();
-            cleanup(cr);
+            cleanup(context.getJobKey());
             metricHistory.clear();
             metricCollectionStartTs = now;
         }
         var topology =
-                getJobTopology(flinkService, resourceID, conf, autoscalerInfo, jobDetailsInfo);
+                getJobTopology(context, conf, autoscalerInfo, jobDetailsInfo);
 
         // Trim metrics outside the metric window from metrics history
         var metricWindowSize = getMetricWindowSize(conf);
@@ -123,11 +116,11 @@ public abstract class ScalingMetricCollector {
 
         // Aggregated job vertex metrics collected from Flink based on the filtered metric names
         var collectedVertexMetrics =
-                queryAllAggregatedMetrics(cr, flinkService, conf, filteredVertexMetricNames);
+                queryAllAggregatedMetrics(context, conf, filteredVertexMetricNames);
 
         // The computed scaling metrics based on the collected aggregated vertex metrics
         var scalingMetrics =
-                convertToScalingMetrics(resourceID, collectedVertexMetrics, topology, conf);
+                convertToScalingMetrics(context.getJobKey(), collectedVertexMetrics, topology, conf);
 
         // Add scaling metrics to history if they were computed successfully
         metricHistory.put(now, scalingMetrics);
@@ -156,8 +149,7 @@ public abstract class ScalingMetricCollector {
     }
 
     protected JobTopology getJobTopology(
-            FlinkService flinkService,
-            ResourceID resourceID,
+            JobAutoScalerContext<KEY> context,
             Configuration conf,
             AutoScalerInfo scalerInfo,
             JobDetailsInfo jobDetailsInfo)
@@ -165,14 +157,14 @@ public abstract class ScalingMetricCollector {
 
         var topology =
                 topologies.computeIfAbsent(
-                        resourceID,
+                        context.getJobKey(),
                         r -> {
                             var t = getJobTopology(jobDetailsInfo);
                             scalerInfo.updateVertexList(
                                     t.getVerticesInTopologicalOrder(), clock.instant(), conf);
                             return t;
                         });
-        updateKafkaSourceMaxParallelisms(flinkService, conf, jobDetailsInfo.getJobId(), topology);
+        updateKafkaSourceMaxParallelisms(context, jobDetailsInfo.getJobId(), topology);
         return topology;
     }
 
@@ -195,9 +187,9 @@ public abstract class ScalingMetricCollector {
     }
 
     private void updateKafkaSourceMaxParallelisms(
-            FlinkService flinkService, Configuration conf, JobID jobId, JobTopology topology)
+            JobAutoScalerContext<KEY> context, JobID jobId, JobTopology topology)
             throws Exception {
-        try (var restClient = (RestClusterClient<String>) flinkService.getClusterClient(conf)) {
+        try (var restClient = (RestClusterClient<String>) context.getRestClusterClient()) {
             var partitionRegex = Pattern.compile("^.*\\.partition\\.\\d+\\.currentOffset$");
             for (Map.Entry<JobVertexID, Set<JobVertexID>> entry : topology.getInputs().entrySet()) {
                 if (entry.getValue().isEmpty()) {
@@ -227,7 +219,7 @@ public abstract class ScalingMetricCollector {
      * @return Computed scaling metrics for all job vertices.
      */
     private CollectedMetrics convertToScalingMetrics(
-            ResourceID resourceID,
+            KEY jobKey,
             Map<JobVertexID, Map<FlinkMetric, AggregatedMetric>> collectedMetrics,
             JobTopology jobTopology,
             Configuration conf) {
@@ -251,7 +243,7 @@ public abstract class ScalingMetricCollector {
 
                     double lagGrowthRate =
                             computeLagGrowthRate(
-                                    resourceID,
+                                    jobKey,
                                     jobVertexID,
                                     vertexScalingMetrics.get(ScalingMetric.LAG));
 
@@ -277,8 +269,8 @@ public abstract class ScalingMetricCollector {
     }
 
     private double computeLagGrowthRate(
-            ResourceID resourceID, JobVertexID jobVertexID, Double currentLag) {
-        var metricHistory = histories.get(resourceID);
+            KEY jobKey, JobVertexID jobVertexID, Double currentLag) {
+        var metricHistory = histories.get(jobKey);
 
         if (metricHistory == null || metricHistory.isEmpty()) {
             return Double.NaN;
@@ -305,28 +297,27 @@ public abstract class ScalingMetricCollector {
     /** Query the available metric names for each job vertex for the current spec generation. */
     @SneakyThrows
     protected Map<JobVertexID, Map<String, FlinkMetric>> queryFilteredMetricNames(
-            FlinkService flinkService,
-            AbstractFlinkResource<?, ?> cr,
+            JobAutoScalerContext<KEY> context,
             Configuration conf,
             JobTopology topology) {
 
-        var jobId = JobID.fromHexString(cr.getStatus().getJobStatus().getJobId());
         var vertices = topology.getVerticesInTopologicalOrder();
 
+        // TODO cannot get the deployedGeneration
         long deployedGeneration = getDeployedGeneration(cr);
 
-        var previousMetricNames = availableVertexMetricNames.get(ResourceID.fromResource(cr));
+        var previousMetricNames = availableVertexMetricNames.get(context.getJobKey());
 
         if (previousMetricNames != null) {
             if (deployedGeneration == previousMetricNames.f0) {
                 // We have already gathered the metric names for this spec, no need to query again
                 return previousMetricNames.f1;
             } else {
-                availableVertexMetricNames.remove(ResourceID.fromResource(cr));
+                availableVertexMetricNames.remove(context.getJobKey()));
             }
         }
 
-        try (var restClient = (RestClusterClient<String>) flinkService.getClusterClient(conf)) {
+        try (var restClient = (RestClusterClient<String>) context.getRestClusterClient()) {
             var names =
                     vertices.stream()
                             .collect(
@@ -437,16 +428,14 @@ public abstract class ScalingMetricCollector {
 
     protected abstract Map<JobVertexID, Map<FlinkMetric, AggregatedMetric>>
             queryAllAggregatedMetrics(
-                    AbstractFlinkResource<?, ?> cr,
-                    FlinkService flinkService,
+                    JobAutoScalerContext<KEY> context,
                     Configuration conf,
                     Map<JobVertexID, Map<String, FlinkMetric>> filteredVertexMetricNames);
 
-    public void cleanup(AbstractFlinkResource<?, ?> cr) {
-        var resourceId = ResourceID.fromResource(cr);
-        histories.remove(resourceId);
-        availableVertexMetricNames.remove(resourceId);
-        topologies.remove(resourceId);
+    public void cleanup(KEY jobKey) {
+        histories.remove(jobKey);
+        availableVertexMetricNames.remove(jobKey);
+        topologies.remove(jobKey);
     }
 
     @VisibleForTesting
@@ -455,18 +444,18 @@ public abstract class ScalingMetricCollector {
     }
 
     @VisibleForTesting
-    protected Map<ResourceID, Tuple2<Long, Map<JobVertexID, Map<String, FlinkMetric>>>>
+    protected Map<KEY, Tuple2<Long, Map<JobVertexID, Map<String, FlinkMetric>>>>
             getAvailableVertexMetricNames() {
         return availableVertexMetricNames;
     }
 
     @VisibleForTesting
-    protected Map<ResourceID, SortedMap<Instant, CollectedMetrics>> getHistories() {
+    protected Map<KEY, SortedMap<Instant, CollectedMetrics>> getHistories() {
         return histories;
     }
 
     @VisibleForTesting
-    protected Map<ResourceID, JobTopology> getTopologies() {
+    protected Map<KEY, JobTopology> getTopologies() {
         return topologies;
     }
 }

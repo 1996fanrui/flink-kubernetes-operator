@@ -40,13 +40,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Metric collector using flink rest api. */
-public class RestApiMetricsCollector extends ScalingMetricCollector {
+public class RestApiMetricsCollector<KEY> extends ScalingMetricCollector<KEY> {
     private static final Logger LOG = LoggerFactory.getLogger(RestApiMetricsCollector.class);
 
     @Override
     protected Map<JobVertexID, Map<FlinkMetric, AggregatedMetric>> queryAllAggregatedMetrics(
-            AbstractFlinkResource<?, ?> cr,
-            FlinkService flinkService,
+            JobAutoScalerContext<KEY> context,
             Configuration conf,
             Map<JobVertexID, Map<String, FlinkMetric>> filteredVertexMetricNames) {
 
@@ -56,25 +55,22 @@ public class RestApiMetricsCollector extends ScalingMetricCollector {
                                 Map.Entry::getKey,
                                 e ->
                                         queryAggregatedVertexMetrics(
-                                                flinkService, cr, conf, e.getKey(), e.getValue())));
+                                                context, conf, e.getKey(), e.getValue())));
     }
 
     @SneakyThrows
     protected Map<FlinkMetric, AggregatedMetric> queryAggregatedVertexMetrics(
-            FlinkService flinkService,
-            AbstractFlinkResource<?, ?> cr,
+            JobAutoScalerContext<KEY> context,
             Configuration conf,
             JobVertexID jobVertexID,
             Map<String, FlinkMetric> metrics) {
 
         LOG.debug("Querying metrics {} for {}", metrics, jobVertexID);
 
-        var jobId = JobID.fromHexString(cr.getStatus().getJobStatus().getJobId());
-
         var parameters = new AggregatedSubtaskMetricsParameters();
         var pathIt = parameters.getPathParameters().iterator();
 
-        ((JobIDPathParameter) pathIt.next()).resolve(jobId);
+        ((JobIDPathParameter) pathIt.next()).resolve(context.getJobID());
         ((JobVertexIdPathParameter) pathIt.next()).resolve(jobVertexID);
 
         parameters
@@ -83,7 +79,7 @@ public class RestApiMetricsCollector extends ScalingMetricCollector {
                 .next()
                 .resolveFromString(StringUtils.join(metrics.keySet(), ","));
 
-        try (RestClusterClient<String> restClient = flinkService.getClusterClient(conf)) {
+        try (RestClusterClient<String> restClient = context.getRestClusterClient()) {
 
             var responseBody =
                     restClient

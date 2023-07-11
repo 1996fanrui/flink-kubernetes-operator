@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.autoscaler;
+package org.apache.flink.kubernetes.operator.reconciler.deployment;
 
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.api.lifecycle.ResourceLifecycleState;
+import org.apache.flink.kubernetes.operator.autoscaler.AbstractJobAutoScaler;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.EvaluatedScalingMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric;
 import org.apache.flink.kubernetes.operator.controller.FlinkResourceContext;
-import org.apache.flink.kubernetes.operator.reconciler.deployment.JobAutoScaler;
 import org.apache.flink.kubernetes.operator.utils.EventRecorder;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
-
-import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +40,9 @@ import static org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMet
 import static org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric.RECOMMENDED_PARALLELISM;
 
 /** Application and SessionJob autoscaler. */
-public class JobAutoScalerImpl implements JobAutoScaler {
+public class KubernetesJobAutoScalerImpl extends AbstractJobAutoScaler<ResourceID> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JobAutoScalerImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesJobAutoScalerImpl.class);
 
     private final KubernetesClient kubernetesClient;
     private final ScalingMetricCollector metricsCollector;
@@ -58,7 +57,7 @@ public class JobAutoScalerImpl implements JobAutoScaler {
     @VisibleForTesting
     final Map<ResourceID, AutoscalerFlinkMetrics> flinkMetrics = new ConcurrentHashMap<>();
 
-    public JobAutoScalerImpl(
+    public KubernetesJobAutoScalerImpl(
             KubernetesClient kubernetesClient,
             ScalingMetricCollector metricsCollector,
             ScalingMetricEvaluator evaluator,
