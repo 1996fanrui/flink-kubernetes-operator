@@ -75,7 +75,7 @@ public abstract class AbstractFlinkResourceReconciler<
     protected final EventRecorder eventRecorder;
     protected final StatusRecorder<CR, STATUS> statusRecorder;
     protected final KubernetesClient kubernetesClient;
-    protected final JobAutoScaler<ResourceID> resourceScaler;
+    protected final JobAutoScaler<ResourceID, > resourceScaler;
 
     public static final String MSG_SUSPENDED = "Suspending existing deployment.";
     public static final String MSG_SPEC_CHANGED =
@@ -199,6 +199,10 @@ public abstract class AbstractFlinkResourceReconciler<
                     EventRecorder.Component.JobManagerDeployment,
                     MSG_ROLLBACK);
         } else if (!reconcileOtherChanges(ctx)) {
+            if (ctx.getResource().getSpec().getJob() == null) {
+                LOG.info("Skip the resource scaler due to these is no flink job.");
+                return;
+            }
             if (!resourceScaler.scale(ctx.getJobAutoScalerContext())) {
                 LOG.info("Resource fully reconciled, nothing to do...");
             }

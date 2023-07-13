@@ -20,10 +20,8 @@ package org.apache.flink.kubernetes.operator.autoscaler;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.FlinkMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.topology.JobTopology;
-import org.apache.flink.kubernetes.operator.service.FlinkService;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rest.messages.job.JobDetailsInfo;
 import org.apache.flink.runtime.rest.messages.job.metrics.AggregatedMetric;
@@ -38,7 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** Testing {@link ScalingMetricCollector} implementation. */
-public class TestingMetricsCollector extends ScalingMetricCollector<String> {
+public class TestingMetricsCollector extends ScalingMetricCollector<String, String> {
 
     @Setter private JobTopology jobTopology;
 
@@ -62,18 +60,14 @@ public class TestingMetricsCollector extends ScalingMetricCollector<String> {
 
     @Override
     protected Map<JobVertexID, Map<FlinkMetric, AggregatedMetric>> queryAllAggregatedMetrics(
-            AbstractFlinkResource<?, ?> cr,
-            FlinkService flinkService,
-            Configuration conf,
+            JobAutoScalerContext<String, String> context,
             Map<JobVertexID, Map<String, FlinkMetric>> filteredVertexMetricNames) {
         return currentMetrics;
     }
 
     @Override
     protected Map<JobVertexID, Map<String, FlinkMetric>> queryFilteredMetricNames(
-            FlinkService flinkService,
-            AbstractFlinkResource<?, ?> cr,
-            Configuration conf,
+            JobAutoScalerContext<String, String> context,
             JobTopology topology) {
         return Collections.emptyMap();
     }

@@ -19,12 +19,11 @@ package org.apache.flink.kubernetes.operator.autoscaler;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.autoscaler.config.AutoScalerOptions;
+import org.apache.flink.kubernetes.operator.autoscaler.event.AutoScalerHandler;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.EvaluatedScalingMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.utils.AutoScalerUtils;
-import org.apache.flink.kubernetes.operator.utils.EventRecorder;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
 
@@ -49,7 +48,7 @@ import static org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMet
 import static org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric.TRUE_PROCESSING_RATE;
 
 /** Component responsible for computing vertex parallelism based on the scaling metrics. */
-public class JobVertexScaler {
+public class JobVertexScaler<KEY, INFO> {
 
     private static final Logger LOG = LoggerFactory.getLogger(JobVertexScaler.class);
 
@@ -59,14 +58,14 @@ public class JobVertexScaler {
 
     private Clock clock = Clock.system(ZoneId.systemDefault());
 
-    private EventRecorder eventRecorder;
+    private final AutoScalerHandler<KEY, INFO> autoScalerHandler;
 
-    public JobVertexScaler(EventRecorder eventRecorder) {
-        this.eventRecorder = eventRecorder;
+    public JobVertexScaler(AutoScalerHandler<KEY, INFO> autoScalerHandler) {
+        this.autoScalerHandler = autoScalerHandler;
     }
 
     public int computeScaleTargetParallelism(
-            AbstractFlinkResource<?, ?> resource,
+            JobAutoScalerContext<KEY, INFO> context,
             Configuration conf,
             JobVertexID vertex,
             Map<ScalingMetric, EvaluatedScalingMetric> evaluatedMetrics,
@@ -125,7 +124,7 @@ public class JobVertexScaler {
 
         if (newParallelism == currentParallelism
                 || blockScalingBasedOnPastActions(
-                        resource,
+                        context,
                         vertex,
                         conf,
                         evaluatedMetrics,
@@ -143,7 +142,7 @@ public class JobVertexScaler {
     }
 
     private boolean blockScalingBasedOnPastActions(
-            AbstractFlinkResource<?, ?> resource,
+            JobAutoScalerContext<KEY, INFO> context,
             JobVertexID vertex,
             Configuration conf,
             Map<ScalingMetric, EvaluatedScalingMetric> evaluatedMetrics,
@@ -163,7 +162,7 @@ public class JobVertexScaler {
         if (currentParallelism == lastSummary.getNewParallelism() && lastSummary.isScaledUp()) {
             if (scaledUp) {
                 return detectIneffectiveScaleUp(
-                        resource, vertex, conf, evaluatedMetrics, lastSummary);
+                       context, vertex, conf, evaluatedMetrics, lastSummary);
             } else {
                 return detectImmediateScaleDownAfterScaleUp(vertex, conf, lastScalingTs);
             }
@@ -186,7 +185,7 @@ public class JobVertexScaler {
     }
 
     private boolean detectIneffectiveScaleUp(
-            AbstractFlinkResource<?, ?> resource,
+            JobAutoScalerContext<KEY, INFO> context,
             JobVertexID vertex,
             Configuration conf,
             Map<ScalingMetric, EvaluatedScalingMetric> evaluatedMetrics,
@@ -213,12 +212,7 @@ public class JobVertexScaler {
 
         var message = String.format(INNEFFECTIVE_MESSAGE_FORMAT, vertex);
 
-        eventRecorder.triggerEvent(
-                resource,
-                EventRecorder.Type.Normal,
-                EventRecorder.Reason.IneffectiveScaling,
-                EventRecorder.Component.Operator,
-                message);
+        autoScalerHandler.handlerIneffectiveScaling(context, message);
 
         if (conf.get(AutoScalerOptions.SCALING_EFFECTIVENESS_DETECTION_ENABLED)) {
             LOG.warn(

@@ -31,6 +31,8 @@ import io.javaoperatorsdk.operator.api.reconciler.Context;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.time.Duration;
+
 /** Context for reconciling a Flink resource. * */
 @RequiredArgsConstructor
 public abstract class FlinkResourceContext<CR extends AbstractFlinkResource<?, ?>> {
@@ -41,7 +43,7 @@ public abstract class FlinkResourceContext<CR extends AbstractFlinkResource<?, ?
 
     private Configuration observeConfig;
 
-    public JobAutoScalerContext<ResourceID> getJobAutoScalerContext() {
+    public JobAutoScalerContext<ResourceID, CR> getJobAutoScalerContext() {
         Configuration conf = getObserveConfig();
         JobID jobId = JobID.fromHexString(getResource().getStatus().getJobStatus().getJobId());
         return new JobAutoScalerContext<>(
@@ -49,7 +51,10 @@ public abstract class FlinkResourceContext<CR extends AbstractFlinkResource<?, ?
                 jobId,
                 conf,
                 getResourceMetricGroup(),
-                () -> getFlinkService().getClusterClient(conf));
+                () -> getFlinkService().getClusterClient(conf),
+                // todo
+                Duration.ofMinutes(1),
+                resource);
     }
 
     /**

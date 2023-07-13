@@ -17,9 +17,7 @@
 
 package org.apache.flink.kubernetes.operator.autoscaler;
 
-import io.fabric8.kubernetes.api.model.gatewayapi.v1beta1.ParametersReferenceFluentImpl;
 import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.Getter;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.client.program.rest.RestClusterClient;
@@ -27,21 +25,29 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.util.function.SupplierWithException;
 
-import java.util.function.Supplier;
+import java.time.Duration;
 
 @AllArgsConstructor
-public class JobAutoScalerContext<KEY> {
+public class JobAutoScalerContext<KEY, INFO> {
 
     // The identifier of each flink job.
-    @Getter private KEY jobKey;
+    @Getter private final KEY jobKey;
 
-    @Getter private JobID jobID;
+    @Getter private final JobID jobID;
 
-    @Getter private Configuration conf;
+    @Getter private final Configuration conf;
 
-    @Getter private MetricGroup metricGroup;
+    @Getter private final MetricGroup metricGroup;
 
-    private SupplierWithException<RestClusterClient<String>, Exception> restClientSupplier;
+    private final SupplierWithException<RestClusterClient<String>, Exception> restClientSupplier;
+
+    @Getter private final Duration flinkClientTimeout;
+
+    /**
+     * The flink-autoscaler doesn't use the extraJobInfo, it is only used in some implements.
+     * This whole context will be passed to these implements when the autoscaler callbacks them.
+     */
+    @Getter private final INFO extraJobInfo;
 
     public RestClusterClient<String> getRestClusterClient() throws Exception {
         return restClientSupplier.get();

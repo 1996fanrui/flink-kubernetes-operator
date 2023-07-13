@@ -18,15 +18,15 @@
 package org.apache.flink.kubernetes.operator.autoscaler;
 
 /** An autoscaler implementation which does nothing. */
-public class NoopJobAutoscaler<KEY> implements JobAutoScaler<KEY> {
+public class NoopJobAutoscaler<KEY, INFO> implements JobAutoScaler<KEY, INFO> {
 
     @Override
-    public boolean scale(JobAutoScalerContext<KEY> context) {
+    public boolean scale(JobAutoScalerContext<KEY, INFO> context) {
         return false;
     }
 
     @Override
-    public void cleanup(JobAutoScalerContext<KEY> context) {
+    public void cleanup(JobAutoScalerContext<KEY, INFO> context) {
 
     }
 }
