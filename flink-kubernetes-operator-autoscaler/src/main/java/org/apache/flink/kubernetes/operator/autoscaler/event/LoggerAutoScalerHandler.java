@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
 
 public class LoggerAutoScalerHandler<KEY, INFO> implements AutoScalerHandler<KEY, INFO> {
 
@@ -29,6 +30,11 @@ public class LoggerAutoScalerHandler<KEY, INFO> implements AutoScalerHandler<KEY
 
     @Override
     public void handlerIneffectiveScaling(JobAutoScalerContext<KEY, INFO> context, String message) {
+
+    }
+
+    @Override
+    public void handlerRecommendedParallelism(JobAutoScalerContext<KEY, INFO> context, HashMap<String, String> recommendedParallelism) {
 
     }
 }

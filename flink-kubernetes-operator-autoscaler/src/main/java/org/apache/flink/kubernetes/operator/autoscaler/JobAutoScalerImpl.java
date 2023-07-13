@@ -24,7 +24,6 @@ import org.apache.flink.kubernetes.operator.autoscaler.metrics.EvaluatedScalingM
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
-import io.fabric8.kubernetes.client.KubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,11 +35,10 @@ import static org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMet
 import static org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric.RECOMMENDED_PARALLELISM;
 
 /** Application and SessionJob autoscaler. */
-public abstract class AbstractJobAutoScaler<KEY, INFO> implements JobAutoScaler<KEY, INFO> {
+public class JobAutoScalerImpl<KEY, INFO> implements JobAutoScaler<KEY, INFO> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractJobAutoScaler.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JobAutoScalerImpl.class);
 
-    private final KubernetesClient kubernetesClient;
     private final ScalingMetricCollector<KEY, INFO> metricsCollector;
     private final ScalingMetricEvaluator evaluator;
     private final ScalingExecutor<KEY, INFO> scalingExecutor;
@@ -53,13 +51,11 @@ public abstract class AbstractJobAutoScaler<KEY, INFO> implements JobAutoScaler<
     @VisibleForTesting
     final Map<KEY, AutoscalerFlinkMetrics> flinkMetrics = new ConcurrentHashMap<>();
 
-    public AbstractJobAutoScaler(
-            KubernetesClient kubernetesClient,
+    public JobAutoScalerImpl(
             ScalingMetricCollector<KEY, INFO> metricsCollector,
             ScalingMetricEvaluator evaluator,
-            ScalingExecutor scalingExecutor,
+            ScalingExecutor<KEY, INFO> scalingExecutor,
             AutoScalerHandler<KEY, INFO> autoScalerHandler) {
-        this.kubernetesClient = kubernetesClient;
         this.metricsCollector = metricsCollector;
         this.evaluator = evaluator;
         this.scalingExecutor = scalingExecutor;

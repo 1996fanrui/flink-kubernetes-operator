@@ -17,8 +17,10 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
-import org.apache.flink.kubernetes.operator.reconciler.deployment.JobAutoScalerFactory;
-import org.apache.flink.kubernetes.operator.reconciler.deployment.NoopJobAutoscalerFactory;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
+import org.apache.flink.kubernetes.operator.api.FlinkDeployment;
+import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoScalerFactory;
+import org.apache.flink.kubernetes.operator.autoscaler.factory.NoopJobAutoscalerFactory;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -31,11 +33,11 @@ public class AutoscalerLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(AutoscalerLoader.class);
 
-    public static JobAutoScalerFactory loadJobAutoscalerFactory() {
-        JobAutoScalerFactory factory = null;
+    public static JobAutoScalerFactory<ResourceID, FlinkDeployment> loadJobAutoscalerFactory() {
+        JobAutoScalerFactory<ResourceID, FlinkDeployment> factory = null;
         boolean singleImplementation = true;
 
-        for (JobAutoScalerFactory discoveredFactory :
+        for (JobAutoScalerFactory<ResourceID, FlinkDeployment> discoveredFactory :
                 ServiceLoader.load(JobAutoScalerFactory.class)) {
             LOG.info(
                     "Discovered JobAutoScaler factory: {}", discoveredFactory.getClass().getName());
@@ -45,7 +47,7 @@ public class AutoscalerLoader {
 
         if (factory == null) {
             LOG.info("No JobAutoscaler implementation found. Autoscaling is disabled.");
-            return new NoopJobAutoscalerFactory();
+            return new NoopJobAutoscalerFactory<>();
         }
 
         Preconditions.checkState(

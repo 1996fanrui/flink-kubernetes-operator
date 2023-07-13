@@ -19,12 +19,10 @@ package org.apache.flink.kubernetes.operator.autoscaler;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.autoscaler.config.AutoScalerOptions;
 import org.apache.flink.kubernetes.operator.autoscaler.event.AutoScalerHandler;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.EvaluatedScalingMetric;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric;
-import org.apache.flink.kubernetes.operator.utils.KubernetesClientUtils;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
 
@@ -56,20 +54,17 @@ public class ScalingExecutor<KEY, INFO> {
     public static final String SCALING_SUMMARY_HEADER_SCALING_ENABLED = "Scaling vertices:";
     private static final Logger LOG = LoggerFactory.getLogger(ScalingExecutor.class);
 
-    private final KubernetesClient kubernetesClient;
     private final JobVertexScaler<KEY, INFO> jobVertexScaler;
     private final AutoScalerHandler<KEY, INFO> autoScalerHandler;
     private Clock clock = Clock.system(ZoneId.systemDefault());
 
-    public ScalingExecutor(KubernetesClient kubernetesClient, AutoScalerHandler<KEY, INFO> autoScalerHandler) {
-        this(kubernetesClient, new JobVertexScaler<>(autoScalerHandler), autoScalerHandler);
+    public ScalingExecutor(AutoScalerHandler<KEY, INFO> autoScalerHandler) {
+        this(new JobVertexScaler<>(autoScalerHandler), autoScalerHandler);
     }
 
     public ScalingExecutor(
-            KubernetesClient kubernetesClient,
             JobVertexScaler<KEY, INFO> jobVertexScaler,
             AutoScalerHandler<KEY, INFO> autoScalerHandler) {
-        this.kubernetesClient = kubernetesClient;
         this.jobVertexScaler = jobVertexScaler;
         this.autoScalerHandler = autoScalerHandler;
     }
@@ -105,15 +100,9 @@ public class ScalingExecutor<KEY, INFO> {
             return false;
         }
 
-        setVertexParallelismOverrides(evaluatedMetrics, scalingSummaries);
-        KubernetesClientUtils.applyToStoredCr(
-                kubernetesClient,
-                resource,
-                stored ->
-                        stored.getSpec()
-                                .setFlinkConfiguration(resource.getSpec().getFlinkConfiguration()));
 
-        scalingInformation.addToScalingHistory(clock.instant(), scalingSummaries, conf);
+        HashMap<String, String> recommendedParallelism = generateRecommendedParallelism(evaluatedMetrics, scalingSummaries);
+        autoScalerHandler.handlerRecommendedParallelism(context, recommendedParallelism);
 
         return true;
     }
@@ -224,8 +213,7 @@ public class ScalingExecutor<KEY, INFO> {
     }
 
     // TODO   update the parallelism for job.
-    private void setVertexParallelismOverrides(
-//            AbstractFlinkResource<?, ?> resource,
+    private HashMap<String, String> generateRecommendedParallelism(
             Map<JobVertexID, Map<ScalingMetric, EvaluatedScalingMetric>> evaluatedMetrics,
             Map<JobVertexID, ScalingSummary> summaries) {
         var overrides = new HashMap<String, String>();
@@ -242,9 +230,7 @@ public class ScalingExecutor<KEY, INFO> {
                                         (int) metrics.get(ScalingMetric.PARALLELISM).getCurrent()));
                     }
                 });
-//        flinkConf.set(PARALLELISM_OVERRIDES, overrides);
-
-//        resource.getSpec().setFlinkConfiguration(flinkConf.toMap());
+        return overrides;
     }
 
     @VisibleForTesting
