@@ -26,7 +26,5 @@ public class NoopJobAutoscaler<KEY, INFO> implements JobAutoScaler<KEY, INFO> {
     }
 
     @Override
-    public void cleanup(JobAutoScalerContext<KEY, INFO> context) {
-
-    }
+    public void cleanup(KEY jobKey) {}
 }

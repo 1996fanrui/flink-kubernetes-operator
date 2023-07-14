@@ -17,13 +17,15 @@
 
 package org.apache.flink.kubernetes.operator.autoscaler;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.kubernetes.operator.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.util.function.SupplierWithException;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.time.Duration;
 
@@ -43,9 +45,11 @@ public class JobAutoScalerContext<KEY, INFO> {
 
     @Getter private final Duration flinkClientTimeout;
 
+    @Getter private final AutoScalerStateStore stateStore;
+
     /**
-     * The flink-autoscaler doesn't use the extraJobInfo, it is only used in some implements.
-     * This whole context will be passed to these implements when the autoscaler callbacks them.
+     * The flink-autoscaler doesn't use the extraJobInfo, it is only used in some implements. This
+     * whole context will be passed to these implements when the autoscaler callbacks them.
      */
     @Getter private final INFO extraJobInfo;
 

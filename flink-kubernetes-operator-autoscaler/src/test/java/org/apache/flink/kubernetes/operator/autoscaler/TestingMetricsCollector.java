@@ -67,8 +67,7 @@ public class TestingMetricsCollector extends ScalingMetricCollector<String, Stri
 
     @Override
     protected Map<JobVertexID, Map<String, FlinkMetric>> queryFilteredMetricNames(
-            JobAutoScalerContext<String, String> context,
-            JobTopology topology) {
+            JobAutoScalerContext<String, String> context, JobTopology topology) {
         return Collections.emptyMap();
     }
 

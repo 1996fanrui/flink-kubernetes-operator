@@ -75,14 +75,14 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
     private Clock clock = Clock.systemDefaultZone();
 
     public CollectedMetricHistory updateMetrics(
-            JobAutoScalerContext<KEY, INFO> context,
-            AutoScalerInfo autoscalerInfo)
+            JobAutoScalerContext<KEY, INFO> context, AutoScalerInfo autoscalerInfo)
             throws Exception {
 
         var now = clock.instant();
 
         var metricHistory =
-                histories.computeIfAbsent(context.getJobKey(), (k) -> autoscalerInfo.getMetricHistory());
+                histories.computeIfAbsent(
+                        context.getJobKey(), (k) -> autoscalerInfo.getMetricHistory());
 
         // The timestamp of the first metric observation marks the start
         // If we haven't collected any metrics, we are starting now
@@ -97,14 +97,14 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
             metricHistory.clear();
             metricCollectionStartTs = now;
         }
-        var topology =
-                getJobTopology(context, autoscalerInfo, jobDetailsInfo);
+        var topology = getJobTopology(context, autoscalerInfo, jobDetailsInfo);
 
         // Trim metrics outside the metric window from metrics history
         var metricWindowSize = getMetricWindowSize(context.getConf());
         metricHistory.headMap(now.minus(metricWindowSize)).clear();
 
-        var stableTime = jobUpdateTs.plus(context.getConf().get(AutoScalerOptions.STABILIZATION_INTERVAL));
+        var stableTime =
+                jobUpdateTs.plus(context.getConf().get(AutoScalerOptions.STABILIZATION_INTERVAL));
         if (now.isBefore(stableTime)) {
             // As long as we are stabilizing, collect no metrics at all
             LOG.info("Skipping metric collection during stabilization period until {}", stableTime);
@@ -115,12 +115,12 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
         var filteredVertexMetricNames = queryFilteredMetricNames(context, topology);
 
         // Aggregated job vertex metrics collected from Flink based on the filtered metric names
-        var collectedVertexMetrics =
-                queryAllAggregatedMetrics(context, filteredVertexMetricNames);
+        var collectedVertexMetrics = queryAllAggregatedMetrics(context, filteredVertexMetricNames);
 
         // The computed scaling metrics based on the collected aggregated vertex metrics
         var scalingMetrics =
-                convertToScalingMetrics(context.getJobKey(), collectedVertexMetrics, topology, context.getConf());
+                convertToScalingMetrics(
+                        context.getJobKey(), collectedVertexMetrics, topology, context.getConf());
 
         // Add scaling metrics to history if they were computed successfully
         metricHistory.put(now, scalingMetrics);
@@ -138,13 +138,12 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
         return collectedMetrics;
     }
 
-    public JobDetailsInfo getJobDetailsInfo(JobAutoScalerContext<KEY, INFO> context) throws Exception {
+    public JobDetailsInfo getJobDetailsInfo(JobAutoScalerContext<KEY, INFO> context)
+            throws Exception {
         try (var restClient = context.getRestClusterClient()) {
             return restClient
                     .getJobDetails(context.getJobID())
-                    .get(
-                            context.getFlinkClientTimeout().toSeconds(),
-                            TimeUnit.SECONDS);
+                    .get(context.getFlinkClientTimeout().toSeconds(), TimeUnit.SECONDS);
         }
     }
 
@@ -170,7 +169,9 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
                         r -> {
                             var t = getJobTopology(jobDetailsInfo);
                             scalerInfo.updateVertexList(
-                                    t.getVerticesInTopologicalOrder(), clock.instant(), context.getConf());
+                                    t.getVerticesInTopologicalOrder(),
+                                    clock.instant(),
+                                    context.getConf());
                             return t;
                         });
         updateKafkaSourceMaxParallelisms(context, jobDetailsInfo.getJobId(), topology);
@@ -277,8 +278,7 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
         return new CollectedMetrics(out, outputRatios);
     }
 
-    private double computeLagGrowthRate(
-            KEY jobKey, JobVertexID jobVertexID, Double currentLag) {
+    private double computeLagGrowthRate(KEY jobKey, JobVertexID jobVertexID, Double currentLag) {
         var metricHistory = histories.get(jobKey);
 
         if (metricHistory == null || metricHistory.isEmpty()) {
@@ -306,8 +306,7 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
     /** Query the available metric names for each job vertex for the current spec generation. */
     @SneakyThrows
     protected Map<JobVertexID, Map<String, FlinkMetric>> queryFilteredMetricNames(
-            JobAutoScalerContext<KEY, INFO> context,
-            JobTopology topology) {
+            JobAutoScalerContext<KEY, INFO> context, JobTopology topology) {
 
         var vertices = topology.getVerticesInTopologicalOrder();
 
@@ -333,7 +332,10 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
                                             v -> v,
                                             v ->
                                                     getFilteredVertexMetricNames(
-                                                            restClient, context.getJobID(), v, topology)));
+                                                            restClient,
+                                                            context.getJobID(),
+                                                            v,
+                                                            topology)));
             availableVertexMetricNames.put(
                     context.getJobKey(), Tuple2.of(deployedGeneration, names));
             return names;
@@ -343,12 +345,12 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
     // TODO cannot get the deployedGeneration
     public static long getDeployedGeneration() {
         return 1;
-//        return cr.getStatus()
-//                .getReconciliationStatus()
-//                .deserializeLastReconciledSpecWithMeta()
-//                .getMeta()
-//                .getMetadata()
-//                .getGeneration();
+        //        return cr.getStatus()
+        //                .getReconciliationStatus()
+        //                .deserializeLastReconciledSpecWithMeta()
+        //                .getMeta()
+        //                .getMetadata()
+        //                .getGeneration();
     }
 
     /**

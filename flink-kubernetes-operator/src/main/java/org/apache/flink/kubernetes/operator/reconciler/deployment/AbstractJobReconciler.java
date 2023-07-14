@@ -17,7 +17,6 @@
 
 package org.apache.flink.kubernetes.operator.reconciler.deployment;
 
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
@@ -37,6 +36,7 @@ import org.apache.flink.kubernetes.operator.utils.SavepointUtils;
 import org.apache.flink.kubernetes.operator.utils.StatusRecorder;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -24,5 +24,5 @@ public interface JobAutoScaler<KEY, INFO> {
     boolean scale(JobAutoScalerContext<KEY, INFO> context);
 
     /** Called when the custom resource is deleted. */
-    void cleanup(JobAutoScalerContext<KEY, INFO> context);
+    void cleanup(KEY jobKey);
 }

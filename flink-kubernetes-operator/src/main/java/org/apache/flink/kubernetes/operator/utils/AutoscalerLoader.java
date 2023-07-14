@@ -17,12 +17,12 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.apache.flink.kubernetes.operator.api.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoScalerFactory;
 import org.apache.flink.kubernetes.operator.autoscaler.factory.NoopJobAutoscalerFactory;
 import org.apache.flink.util.Preconditions;
 
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
