@@ -162,7 +162,7 @@ public class JobVertexScaler<KEY, INFO> {
         if (currentParallelism == lastSummary.getNewParallelism() && lastSummary.isScaledUp()) {
             if (scaledUp) {
                 return detectIneffectiveScaleUp(
-                       context, vertex, conf, evaluatedMetrics, lastSummary);
+                        context, vertex, conf, evaluatedMetrics, lastSummary);
             } else {
                 return detectImmediateScaleDownAfterScaleUp(vertex, conf, lastScalingTs);
             }

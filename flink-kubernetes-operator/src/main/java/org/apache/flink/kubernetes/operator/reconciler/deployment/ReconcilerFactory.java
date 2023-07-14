@@ -17,7 +17,6 @@
 
 package org.apache.flink.kubernetes.operator.reconciler.deployment;
 
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.kubernetes.operator.api.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.api.spec.KubernetesDeploymentMode;
@@ -30,6 +29,7 @@ import org.apache.flink.kubernetes.operator.utils.EventRecorder;
 import org.apache.flink.kubernetes.operator.utils.StatusRecorder;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

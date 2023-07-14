@@ -48,6 +48,7 @@ import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 
 /**
  * Base class for all Flink resource reconcilers. It contains the general flow of reconciling Flink
@@ -94,7 +94,8 @@ public abstract class AbstractFlinkResourceReconciler<
         this.kubernetesClient = kubernetesClient;
         this.eventRecorder = eventRecorder;
         this.statusRecorder = statusRecorder;
-        KubernetesAutoScalerHandler<CR> kubernetesAutoScalerHandler= new KubernetesAutoScalerHandler<>(kubernetesClient, eventRecorder);
+        KubernetesAutoScalerHandler<CR> kubernetesAutoScalerHandler =
+                new KubernetesAutoScalerHandler<>(kubernetesClient, eventRecorder);
         this.resourceScaler = autoscalerFactory.create(kubernetesAutoScalerHandler);
     }
 
@@ -284,7 +285,7 @@ public abstract class AbstractFlinkResourceReconciler<
 
     @Override
     public DeleteControl cleanup(FlinkResourceContext<CR> ctx) {
-        resourceScaler.cleanup(ctx.getJobAutoScalerContext());
+        resourceScaler.cleanup(ctx.getResourceID());
         return cleanupInternal(ctx);
     }
 

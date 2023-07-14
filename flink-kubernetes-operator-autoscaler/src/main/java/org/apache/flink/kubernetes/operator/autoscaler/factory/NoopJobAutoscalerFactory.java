@@ -28,5 +28,4 @@ public class NoopJobAutoscalerFactory<KEY, INFO> implements JobAutoScalerFactory
     public JobAutoScaler<KEY, INFO> create(AutoScalerHandler<KEY, INFO> autoScalerHandler) {
         return new NoopJobAutoscaler<>();
     }
-
 }

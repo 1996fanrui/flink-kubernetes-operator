@@ -19,5 +19,7 @@ package org.apache.flink.kubernetes.operator.autoscaler;
 
 import org.apache.flink.kubernetes.operator.autoscaler.factory.NoopJobAutoscalerFactory;
 
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
+
 /** Dummy autoscaler to test the plugin loading for the autoscaler. */
-public class TestingAutoscalerFactory<CR> extends NoopJobAutoscalerFactory<CR> {}
+public class TestingAutoscalerFactory<CR> extends NoopJobAutoscalerFactory<ResourceID, CR> {}

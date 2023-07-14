@@ -26,7 +26,6 @@ import org.apache.flink.kubernetes.operator.autoscaler.metrics.ScalingMetric;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
 
-import io.fabric8.kubernetes.client.KubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,9 +99,11 @@ public class ScalingExecutor<KEY, INFO> {
             return false;
         }
 
-
-        HashMap<String, String> recommendedParallelism = generateRecommendedParallelism(evaluatedMetrics, scalingSummaries);
+        HashMap<String, String> recommendedParallelism =
+                generateRecommendedParallelism(evaluatedMetrics, scalingSummaries);
         autoScalerHandler.handlerRecommendedParallelism(context, recommendedParallelism);
+
+        scalingInformation.addToScalingHistory(clock.instant(), scalingSummaries, conf);
 
         return true;
     }

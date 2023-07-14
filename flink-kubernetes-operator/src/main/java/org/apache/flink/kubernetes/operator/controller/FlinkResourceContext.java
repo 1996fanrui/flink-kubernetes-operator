@@ -17,7 +17,6 @@
 
 package org.apache.flink.kubernetes.operator.controller;
 
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
@@ -28,10 +27,10 @@ import org.apache.flink.kubernetes.operator.metrics.KubernetesResourceMetricGrou
 import org.apache.flink.kubernetes.operator.service.FlinkService;
 
 import io.javaoperatorsdk.operator.api.reconciler.Context;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-
-import java.time.Duration;
+import org.jetbrains.annotations.NotNull;
 
 /** Context for reconciling a Flink resource. * */
 @RequiredArgsConstructor
@@ -46,15 +45,21 @@ public abstract class FlinkResourceContext<CR extends AbstractFlinkResource<?, ?
     public JobAutoScalerContext<ResourceID, CR> getJobAutoScalerContext() {
         Configuration conf = getObserveConfig();
         JobID jobId = JobID.fromHexString(getResource().getStatus().getJobStatus().getJobId());
+
         return new JobAutoScalerContext<>(
-                ResourceID.fromResource(resource),
+                getResourceID(),
                 jobId,
                 conf,
                 getResourceMetricGroup(),
                 () -> getFlinkService().getClusterClient(conf),
-                // todo
-                Duration.ofMinutes(1),
+                getFlinkService().getFlinkClientTimeout(),
+                null,
                 resource);
+    }
+
+    @NotNull
+    public ResourceID getResourceID() {
+        return ResourceID.fromResource(resource);
     }
 
     /**
