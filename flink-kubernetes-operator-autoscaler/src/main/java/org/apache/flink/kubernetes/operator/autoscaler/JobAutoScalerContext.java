@@ -37,6 +37,11 @@ public class JobAutoScalerContext<KEY, INFO> {
 
     @Getter private final JobID jobID;
 
+    @Getter private final long jobVersion;
+
+    // Whether the job is really running, the STARTING or CANCELING aren't running.
+    @Getter private final boolean isRunning;
+
     @Getter private final Configuration conf;
 
     @Getter private final MetricGroup metricGroup;

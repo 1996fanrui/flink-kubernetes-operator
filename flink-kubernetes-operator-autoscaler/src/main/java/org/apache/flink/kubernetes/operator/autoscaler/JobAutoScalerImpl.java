@@ -86,16 +86,11 @@ public class JobAutoScalerImpl<KEY, INFO> implements JobAutoScaler<KEY, INFO> {
 
             // Initialize metrics only if autoscaler is enabled
 
-            // TODO support this
-            //        var resource = ctx.getResource();
-            //            var status = resource.getStatus();
-            //            if (status.getLifecycleState() != ResourceLifecycleState.STABLE
-            //                    ||
-            // !status.getJobStatus().getState().equals(JobStatus.RUNNING.name())) {
-            //                LOG.info("Job autoscaler is waiting for RUNNING job state");
-            //                lastEvaluatedMetrics.remove(jobKey);
-            //                return false;
-            //            }
+            if (!context.isRunning()) {
+                LOG.info("Job autoscaler is waiting for RUNNING job state");
+                lastEvaluatedMetrics.remove(context.getJobKey());
+                return false;
+            }
 
             var autoScalerInfo = new AutoScalerInfo(context.getStateStore());
 

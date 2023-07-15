@@ -213,7 +213,6 @@ public class ScalingExecutor<KEY, INFO> {
         return out;
     }
 
-    // TODO   update the parallelism for job.
     private HashMap<String, String> generateRecommendedParallelism(
             Map<JobVertexID, Map<ScalingMetric, EvaluatedScalingMetric>> evaluatedMetrics,
             Map<JobVertexID, ScalingSummary> summaries) {

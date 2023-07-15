@@ -310,13 +310,10 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
 
         var vertices = topology.getVerticesInTopologicalOrder();
 
-        // TODO cannot get the deployedGeneration
-        long deployedGeneration = getDeployedGeneration();
-
         var previousMetricNames = availableVertexMetricNames.get(context.getJobKey());
 
         if (previousMetricNames != null) {
-            if (deployedGeneration == previousMetricNames.f0) {
+            if (context.getJobVersion() == previousMetricNames.f0) {
                 // We have already gathered the metric names for this spec, no need to query again
                 return previousMetricNames.f1;
             } else {
@@ -337,20 +334,9 @@ public abstract class ScalingMetricCollector<KEY, INFO> {
                                                             v,
                                                             topology)));
             availableVertexMetricNames.put(
-                    context.getJobKey(), Tuple2.of(deployedGeneration, names));
+                    context.getJobKey(), Tuple2.of(context.getJobVersion(), names));
             return names;
         }
-    }
-
-    // TODO cannot get the deployedGeneration
-    public static long getDeployedGeneration() {
-        return 1;
-        //        return cr.getStatus()
-        //                .getReconciliationStatus()
-        //                .deserializeLastReconciledSpecWithMeta()
-        //                .getMeta()
-        //                .getMetadata()
-        //                .getGeneration();
     }
 
     /**
