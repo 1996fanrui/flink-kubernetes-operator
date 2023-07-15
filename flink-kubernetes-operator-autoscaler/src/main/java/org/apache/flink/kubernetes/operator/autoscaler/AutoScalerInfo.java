@@ -19,22 +19,18 @@ package org.apache.flink.kubernetes.operator.autoscaler;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
 import org.apache.flink.kubernetes.operator.autoscaler.config.AutoScalerOptions;
 import org.apache.flink.kubernetes.operator.autoscaler.metrics.CollectedMetrics;
+import org.apache.flink.kubernetes.operator.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.kubernetes.operator.autoscaler.utils.AutoScalerSerDeModule;
-import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
-import org.apache.flink.util.Preconditions;
 
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
-import io.fabric8.kubernetes.client.KubernetesClient;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JacksonException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import lombok.SneakyThrows;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -50,7 +46,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.zip.GZIPInputStream;
@@ -60,8 +55,6 @@ import java.util.zip.GZIPOutputStream;
 public class AutoScalerInfo {
 
     private static final Logger LOG = LoggerFactory.getLogger(AutoScalerInfo.class);
-
-    private static final String LABEL_COMPONENT_AUTOSCALER = "autoscaler";
 
     protected static final String COLLECTED_METRICS_KEY = "collectedMetrics";
     protected static final String SCALING_HISTORY_KEY = "scalingHistory";
@@ -73,40 +66,32 @@ public class AutoScalerInfo {
                     .registerModule(new JavaTimeModule())
                     .registerModule(new AutoScalerSerDeModule());
 
-    private final ConfigMap configMap;
+    private final AutoScalerStateStore stateStore;
     private Map<JobVertexID, SortedMap<Instant, ScalingSummary>> scalingHistory;
 
-    public AutoScalerInfo(ConfigMap configMap) {
-        this.configMap = configMap;
-    }
-
-    @VisibleForTesting
-    public AutoScalerInfo(Map<String, String> data) {
-        this(new ConfigMap());
-        configMap.setData(Preconditions.checkNotNull(data));
+    public AutoScalerInfo(AutoScalerStateStore stateStore) {
+        this.stateStore = stateStore;
     }
 
     public SortedMap<Instant, CollectedMetrics> getMetricHistory() {
-        var historyYaml = configMap.getData().get(COLLECTED_METRICS_KEY);
-        if (historyYaml == null) {
+        var historyYaml = stateStore.get(COLLECTED_METRICS_KEY);
+        if (historyYaml.isEmpty()) {
             return new TreeMap<>();
         }
 
         try {
-            return YAML_MAPPER.readValue(decompress(historyYaml), new TypeReference<>() {});
+            return YAML_MAPPER.readValue(decompress(historyYaml.get()), new TypeReference<>() {});
         } catch (JacksonException e) {
             LOG.error(
                     "Could not deserialize metric history, possibly the format changed. Discarding...");
-            configMap.getData().remove(COLLECTED_METRICS_KEY);
+            stateStore.remove(COLLECTED_METRICS_KEY);
             return new TreeMap<>();
         }
     }
 
     @SneakyThrows
     public void updateMetricHistory(SortedMap<Instant, CollectedMetrics> history) {
-        configMap
-                .getData()
-                .put(COLLECTED_METRICS_KEY, compress(YAML_MAPPER.writeValueAsString(history)));
+        stateStore.put(COLLECTED_METRICS_KEY, compress(YAML_MAPPER.writeValueAsString(history)));
     }
 
     @SneakyThrows
@@ -120,7 +105,7 @@ public class AutoScalerInfo {
     }
 
     public void clearMetricHistory() {
-        configMap.getData().remove(COLLECTED_METRICS_KEY);
+        stateStore.remove(COLLECTED_METRICS_KEY);
     }
 
     private void trimScalingHistory(Instant now, Configuration conf) {
@@ -153,17 +138,18 @@ public class AutoScalerInfo {
             trimScalingHistory(now, conf);
             return scalingHistory;
         }
-        var yaml = decompress(configMap.getData().get(SCALING_HISTORY_KEY));
-        if (yaml == null) {
+        var yaml = stateStore.get(SCALING_HISTORY_KEY);
+        if (yaml.isEmpty()) {
             scalingHistory = new HashMap<>();
             return scalingHistory;
         }
         try {
-            scalingHistory = YAML_MAPPER.readValue(yaml, new TypeReference<>() {});
+            scalingHistory =
+                    YAML_MAPPER.readValue(decompress(yaml.get()), new TypeReference<>() {});
         } catch (JacksonException e) {
             LOG.error(
                     "Could not deserialize scaling history, possibly the format changed. Discarding...");
-            configMap.getData().remove(SCALING_HISTORY_KEY);
+            stateStore.remove(SCALING_HISTORY_KEY);
             scalingHistory = new HashMap<>();
         }
         return scalingHistory;
@@ -183,22 +169,19 @@ public class AutoScalerInfo {
     }
 
     private void storeScalingHistory() throws Exception {
-        configMap
-                .getData()
-                .put(SCALING_HISTORY_KEY, compress(YAML_MAPPER.writeValueAsString(scalingHistory)));
+        stateStore.put(
+                SCALING_HISTORY_KEY, compress(YAML_MAPPER.writeValueAsString(scalingHistory)));
     }
 
-    public void replaceInKubernetes(KubernetesClient client) throws Exception {
+    public void persistState() throws Exception {
         trimHistoryToMaxCmSize();
-        client.resource(configMap).update();
+        stateStore.flush();
     }
 
     @VisibleForTesting
     protected void trimHistoryToMaxCmSize() throws Exception {
-        var data = configMap.getData();
-
-        int scalingHistorySize = data.getOrDefault(SCALING_HISTORY_KEY, "").length();
-        int metricHistorySize = data.getOrDefault(COLLECTED_METRICS_KEY, "").length();
+        int scalingHistorySize = stateStore.get(SCALING_HISTORY_KEY).map(String::length).orElse(0);
+        int metricHistorySize = stateStore.get(COLLECTED_METRICS_KEY).map(String::length).orElse(0);
 
         SortedMap<Instant, CollectedMetrics> metricHistory = null;
         while (scalingHistorySize + metricHistorySize > MAX_CM_BYTES) {
@@ -212,48 +195,9 @@ public class AutoScalerInfo {
             LOG.info("Trimming metric history by removing {}", firstKey);
             metricHistory.remove(firstKey);
             String compressed = compress(YAML_MAPPER.writeValueAsString(metricHistory));
-            data.put(COLLECTED_METRICS_KEY, compressed);
+            stateStore.put(COLLECTED_METRICS_KEY, compressed);
             metricHistorySize = compressed.length();
         }
-    }
-
-    public static AutoScalerInfo forResource(
-            AbstractFlinkResource<?, ?> cr, KubernetesClient kubeClient) {
-
-        var objectMeta = new ObjectMeta();
-        objectMeta.setName("autoscaler-" + cr.getMetadata().getName());
-        objectMeta.setNamespace(cr.getMetadata().getNamespace());
-
-        ConfigMap infoCm =
-                getScalingInfoConfigMap(objectMeta, kubeClient)
-                        .orElseGet(
-                                () -> {
-                                    LOG.info("Creating scaling info config map");
-
-                                    objectMeta.setLabels(
-                                            Map.of(
-                                                    Constants.LABEL_COMPONENT_KEY,
-                                                    LABEL_COMPONENT_AUTOSCALER,
-                                                    Constants.LABEL_APP_KEY,
-                                                    cr.getMetadata().getName()));
-                                    var cm = new ConfigMap();
-                                    cm.setMetadata(objectMeta);
-                                    cm.addOwnerReference(cr);
-                                    cm.setData(new HashMap<>());
-                                    return kubeClient.resource(cm).create();
-                                });
-
-        return new AutoScalerInfo(infoCm);
-    }
-
-    private static Optional<ConfigMap> getScalingInfoConfigMap(
-            ObjectMeta objectMeta, KubernetesClient kubeClient) {
-        return Optional.ofNullable(
-                kubeClient
-                        .configMaps()
-                        .inNamespace(objectMeta.getNamespace())
-                        .withName(objectMeta.getName())
-                        .get());
     }
 
     private static String compress(String original) throws IOException {
@@ -286,6 +230,7 @@ public class AutoScalerInfo {
         // Set yaml size limit to 10mb
         var loaderOptions = new LoaderOptions();
         loaderOptions.setCodePointLimit(20 * 1024 * 1024);
-        return YAMLFactory.builder().loaderOptions(loaderOptions).build();
+        // TODO flink 1.18 is using jackson 1.14, it supports loaderOptions.
+        return YAMLFactory.builder().build();
     }
 }

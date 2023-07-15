@@ -15,28 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.autoscaler;
+package org.apache.flink.kubernetes.operator.autoscaler.factory;
 
-import org.apache.flink.kubernetes.operator.reconciler.deployment.JobAutoScaler;
-import org.apache.flink.kubernetes.operator.reconciler.deployment.JobAutoScalerFactory;
-import org.apache.flink.kubernetes.operator.utils.EventRecorder;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScaler;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScalerImpl;
+import org.apache.flink.kubernetes.operator.autoscaler.RestApiMetricsCollector;
+import org.apache.flink.kubernetes.operator.autoscaler.ScalingExecutor;
+import org.apache.flink.kubernetes.operator.autoscaler.ScalingMetricEvaluator;
+import org.apache.flink.kubernetes.operator.autoscaler.event.AutoScalerHandler;
 
 import com.google.auto.service.AutoService;
-import io.fabric8.kubernetes.client.KubernetesClient;
 
 /**
  * Factory for loading JobAutoScalerImpl included in this module. This class will be dynamically
  * instantiated by the main operator module.
  */
 @AutoService(JobAutoScalerFactory.class)
-public class JobAutoscalerFactoryImpl implements JobAutoScalerFactory {
+public class JobAutoscalerFactoryImpl<KEY, INFO> implements JobAutoScalerFactory<KEY, INFO> {
+
     @Override
-    public JobAutoScaler create(KubernetesClient kubernetesClient, EventRecorder eventRecorder) {
-        return new JobAutoScalerImpl(
-                kubernetesClient,
-                new RestApiMetricsCollector(),
+    public JobAutoScaler<KEY, INFO> create(AutoScalerHandler<KEY, INFO> autoScalerHandler) {
+        return new JobAutoScalerImpl<>(
+                new RestApiMetricsCollector<>(),
                 new ScalingMetricEvaluator(),
-                new ScalingExecutor(kubernetesClient, eventRecorder),
-                eventRecorder);
+                new ScalingExecutor<>(autoScalerHandler),
+                autoScalerHandler);
     }
 }

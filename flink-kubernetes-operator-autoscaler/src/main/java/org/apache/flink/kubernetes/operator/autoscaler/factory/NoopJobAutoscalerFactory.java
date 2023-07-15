@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.reconciler.deployment;
+package org.apache.flink.kubernetes.operator.autoscaler.factory;
 
-import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
-import org.apache.flink.kubernetes.operator.controller.FlinkResourceContext;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScaler;
+import org.apache.flink.kubernetes.operator.autoscaler.NoopJobAutoscaler;
+import org.apache.flink.kubernetes.operator.autoscaler.event.AutoScalerHandler;
 
-/** Per-job Autoscaler instance. */
-public interface JobAutoScaler {
+/** An autoscaler implementation which does nothing. */
+public class NoopJobAutoscalerFactory<KEY, INFO> implements JobAutoScalerFactory<KEY, INFO> {
 
-    /** Called as part of the reconciliation loop. Returns true if this call led to scaling. */
-    boolean scale(FlinkResourceContext<? extends AbstractFlinkResource<?, ?>> ctx);
-
-    /** Called when the custom resource is deleted. */
-    void cleanup(AbstractFlinkResource<?, ?> cr);
+    @Override
+    public JobAutoScaler<KEY, INFO> create(AutoScalerHandler<KEY, INFO> autoScalerHandler) {
+        return new NoopJobAutoscaler<>();
+    }
 }

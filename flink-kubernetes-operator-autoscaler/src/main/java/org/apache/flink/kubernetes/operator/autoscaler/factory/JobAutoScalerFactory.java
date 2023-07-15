@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.utils;
+package org.apache.flink.kubernetes.operator.autoscaler.factory;
 
-import org.apache.flink.kubernetes.operator.api.FlinkDeployment;
-import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoScalerFactory;
-import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoscalerFactoryImpl;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScaler;
+import org.apache.flink.kubernetes.operator.autoscaler.event.AutoScalerHandler;
 
-import io.javaoperatorsdk.operator.processing.event.ResourceID;
+/** Factory to construct a new autoscaler instance. */
+public interface JobAutoScalerFactory<KEY, INFO> {
 
-/** Loads the active Autoscaler implementation from the classpath. */
-public class AutoscalerLoader {
-
-    public static JobAutoScalerFactory<ResourceID, FlinkDeployment> loadJobAutoscalerFactory() {
-        return new JobAutoscalerFactoryImpl<>();
-    }
+    JobAutoScaler<KEY, INFO> create(AutoScalerHandler<KEY, INFO> autoScalerHandler);
 }

@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.reconciler.deployment;
+package org.apache.flink.kubernetes.operator.autoscaler;
 
-import org.apache.flink.kubernetes.operator.utils.EventRecorder;
+/** The general Autoscaler instance. */
+public interface JobAutoScaler<KEY, INFO> {
 
-import io.fabric8.kubernetes.client.KubernetesClient;
+    /** Called as part of the reconciliation loop. Returns true if this call led to scaling. */
+    boolean scale(JobAutoScalerContext<KEY, INFO> context);
 
-/** Factory to construct a new autoscaler instance. */
-public interface JobAutoScalerFactory {
-
-    JobAutoScaler create(KubernetesClient kubernetesClient, EventRecorder eventRecorder);
+    /** Called when the custom resource is deleted. */
+    void cleanup(KEY jobKey);
 }

@@ -198,6 +198,11 @@ under the License.
             <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-kubernetes-operator-autoscaler</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -24,13 +24,13 @@ import org.apache.flink.kubernetes.operator.autoscaler.metrics.MetricAggregator;
 import java.time.Duration;
 import java.util.List;
 
-import static org.apache.flink.kubernetes.operator.config.KubernetesOperatorConfigOptions.operatorConfig;
-
 /** Config options related to the autoscaler module. */
 public class AutoScalerOptions {
 
+    public static final String K8S_OP_CONF_PREFIX = "kubernetes.operator.";
+
     private static ConfigOptions.OptionBuilder autoScalerConfig(String key) {
-        return operatorConfig("job.autoscaler." + key);
+        return ConfigOptions.key(K8S_OP_CONF_PREFIX + "job.autoscaler." + key);
     }
 
     public static final ConfigOption<Boolean> AUTOSCALER_ENABLED =

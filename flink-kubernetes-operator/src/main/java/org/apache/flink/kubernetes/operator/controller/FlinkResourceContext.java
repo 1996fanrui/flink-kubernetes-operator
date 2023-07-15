@@ -17,16 +17,24 @@
 
 package org.apache.flink.kubernetes.operator.controller;
 
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.api.AbstractFlinkResource;
+import org.apache.flink.kubernetes.operator.api.lifecycle.ResourceLifecycleState;
 import org.apache.flink.kubernetes.operator.api.spec.AbstractFlinkSpec;
 import org.apache.flink.kubernetes.operator.api.spec.KubernetesDeploymentMode;
+import org.apache.flink.kubernetes.operator.autoscaler.JobAutoScalerContext;
 import org.apache.flink.kubernetes.operator.metrics.KubernetesResourceMetricGroup;
+import org.apache.flink.kubernetes.operator.reconciler.deployment.KubernetesAutoScalerStateStore;
 import org.apache.flink.kubernetes.operator.service.FlinkService;
 
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
+import io.javaoperatorsdk.operator.processing.event.ResourceID;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 /** Context for reconciling a Flink resource. * */
 @RequiredArgsConstructor
@@ -37,6 +45,44 @@ public abstract class FlinkResourceContext<CR extends AbstractFlinkResource<?, ?
     @Getter private final KubernetesResourceMetricGroup resourceMetricGroup;
 
     private Configuration observeConfig;
+
+    public JobAutoScalerContext<ResourceID, CR> getJobAutoScalerContext(
+            KubernetesClient kubernetesClient) {
+        Configuration conf = getObserveConfig();
+        JobID jobId = JobID.fromHexString(getResource().getStatus().getJobStatus().getJobId());
+
+        return new JobAutoScalerContext<>(
+                getResourceID(),
+                jobId,
+                getGeneration(),
+                isReallyRunning(),
+                conf,
+                getResourceMetricGroup(),
+                () -> getFlinkService().getClusterClient(conf),
+                getFlinkService().getFlinkClientTimeout(),
+                new KubernetesAutoScalerStateStore(resource, kubernetesClient),
+                resource);
+    }
+
+    private boolean isReallyRunning() {
+        var status = resource.getStatus();
+        return status.getLifecycleState() == ResourceLifecycleState.STABLE
+                && status.getJobStatus().getState().equals(JobStatus.RUNNING.name());
+    }
+
+    private long getGeneration() {
+        return resource.getStatus()
+                .getReconciliationStatus()
+                .deserializeLastReconciledSpecWithMeta()
+                .getMeta()
+                .getMetadata()
+                .getGeneration();
+    }
+
+    @NotNull
+    public ResourceID getResourceID() {
+        return ResourceID.fromResource(resource);
+    }
 
     /**
      * Get the config that is currently deployed for the resource spec. The returned config may be
