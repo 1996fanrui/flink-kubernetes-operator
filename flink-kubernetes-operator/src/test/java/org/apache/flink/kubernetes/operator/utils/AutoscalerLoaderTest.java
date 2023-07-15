@@ -17,11 +17,11 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
+import org.apache.flink.autoscaler.factory.JobAutoScalerFactory;
+import org.apache.flink.autoscaler.factory.NoopJobAutoscalerFactory;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.kubernetes.operator.TestUtils;
 import org.apache.flink.kubernetes.operator.autoscaler.TestingAutoscalerFactory;
-import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoScalerFactory;
-import org.apache.flink.kubernetes.operator.autoscaler.factory.NoopJobAutoscalerFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

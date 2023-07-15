@@ -17,7 +17,7 @@
 
 package org.apache.flink.kubernetes.operator.autoscaler;
 
-import org.apache.flink.kubernetes.operator.autoscaler.factory.NoopJobAutoscalerFactory;
+import org.apache.flink.autoscaler.factory.NoopJobAutoscalerFactory;
 
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
 

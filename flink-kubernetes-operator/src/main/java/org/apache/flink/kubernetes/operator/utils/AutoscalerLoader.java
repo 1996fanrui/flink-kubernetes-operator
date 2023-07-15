@@ -17,9 +17,9 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
+import org.apache.flink.autoscaler.factory.JobAutoScalerFactory;
+import org.apache.flink.autoscaler.factory.JobAutoscalerFactoryImpl;
 import org.apache.flink.kubernetes.operator.api.FlinkDeployment;
-import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoScalerFactory;
-import org.apache.flink.kubernetes.operator.autoscaler.factory.JobAutoscalerFactoryImpl;
 
 import io.javaoperatorsdk.operator.processing.event.ResourceID;
 
