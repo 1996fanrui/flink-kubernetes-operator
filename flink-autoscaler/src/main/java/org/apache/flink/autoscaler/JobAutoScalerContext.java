@@ -18,6 +18,7 @@
 package org.apache.flink.autoscaler;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.autoscaler.state.AutoScalerStateStoreFactory;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
@@ -30,6 +31,7 @@ import lombok.Getter;
 import javax.annotation.Nullable;
 
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * The job autoscaler context.
@@ -58,7 +60,7 @@ public class JobAutoScalerContext<KEY, INFO> {
 
     @Getter private final Duration flinkClientTimeout;
 
-    @Getter private final AutoScalerStateStoreFactory stateStoreFactory;
+    private final AutoScalerStateStoreFactory stateStoreFactory;
 
     /**
      * The flink-autoscaler doesn't use the extraJobInfo, it is only used in some implements. This
@@ -68,5 +70,13 @@ public class JobAutoScalerContext<KEY, INFO> {
 
     public RestClusterClient<String> getRestClusterClient() throws Exception {
         return restClientSupplier.get();
+    }
+
+    public Optional<AutoScalerStateStore> getStateStore() {
+        return stateStoreFactory.get();
+    }
+
+    public AutoScalerStateStore getOrCreateStateStore() {
+        return stateStoreFactory.getOrCreate();
     }
 }
