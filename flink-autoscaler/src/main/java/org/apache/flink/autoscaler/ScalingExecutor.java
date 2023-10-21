@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.autoscaler.config.AutoScalerOptions.SCALING_ENABLED;
 import static org.apache.flink.autoscaler.metrics.ScalingHistoryUtils.addToScalingHistoryAndStore;
@@ -108,7 +109,7 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
                 AutoScalerEventHandler.Type.Normal,
                 SCALING_REPORT_REASON,
                 scalingReport,
-                "ScalingExecutor",
+                scalingEnabled ? "ScalingExecutor" : getParallelismHashCode(scalingSummaries),
                 scalingEnabled ? null : conf.get(AutoScalerOptions.SCALING_REPORT_INTERVAL));
 
         if (!scalingEnabled) {
@@ -155,6 +156,23 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
                                         s.getMetrics().get(EXPECTED_PROCESSING_RATE).getCurrent(),
                                         s.getMetrics().get(TARGET_DATA_RATE).getAverage())));
         return sb.toString();
+    }
+
+    private static String getParallelismHashCode(
+            Map<JobVertexID, ScalingSummary> scalingSummaryHashMap) {
+        return Integer.toString(
+                scalingSummaryHashMap.entrySet().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                e -> e.getKey().toString(),
+                                                e ->
+                                                        String.format(
+                                                                "Parallelism %d -> %d",
+                                                                e.getValue()
+                                                                        .getCurrentParallelism(),
+                                                                e.getValue().getNewParallelism())))
+                                .hashCode()
+                        & 0x7FFFFFFF);
     }
 
     protected static boolean allVerticesWithinUtilizationTarget(

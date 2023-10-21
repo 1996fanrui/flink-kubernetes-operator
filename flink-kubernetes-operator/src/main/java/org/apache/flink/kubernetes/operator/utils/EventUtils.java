@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.operator.utils;
 import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.EventBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReferenceBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
@@ -27,6 +28,7 @@ import javax.annotation.Nullable;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -35,6 +37,8 @@ import java.util.function.Consumer;
  * https://github.com/EnMasseProject/enmasse/blob/master/k8s-api/src/main/java/io/enmasse/k8s/api/KubeEventLogger.java
  */
 public class EventUtils {
+
+    private static final String MESSAGE_KEY = "messageKey";
 
     public static String generateEventName(
             HasMetadata target,
@@ -102,8 +106,17 @@ public class EventUtils {
         if (existing != null) {
             return false;
         } else {
-            createNewEvent(
-                    client, target, type, reason, message, component, eventListener, eventName);
+            Event event =
+                    createNewEvent(
+                            client,
+                            target,
+                            type,
+                            reason,
+                            message,
+                            component,
+                            eventListener,
+                            eventName);
+            eventListener.accept(client.resource(event).createOrReplace());
             return true;
         }
     }
@@ -118,42 +131,88 @@ public class EventUtils {
             Consumer<Event> eventListener,
             @Nullable String messageKey,
             Duration interval) {
+        Map<String, String> labels = null;
+        if (messageKey != null) {
+            labels = Map.of(MESSAGE_KEY, messageKey);
+        }
 
-        String eventName =
-                generateEventName(
-                        target, type, reason, messageKey != null ? messageKey : message, component);
+        String generatedMessageKey = messageKey != null ? messageKey : message;
+        String eventName = generateEventName(target, type, reason, generatedMessageKey, component);
         Event existing = findExistingEvent(client, target, eventName);
 
         if (existing != null) {
-            if (Objects.equals(existing.getMessage(), message)
+            // Ignore message when it's a repeated message and interval isn't reached.
+            if (Objects.equals(getEventMessageKey(existing), generatedMessageKey)
                     && Instant.now()
                             .isBefore(
                                     Instant.parse(existing.getLastTimestamp())
                                             .plusMillis(interval.toMillis()))) {
                 return false;
-            } else {
-                createUpdatedEvent(existing, client, message, eventListener);
-                return false;
             }
+            updatedEventWithLabels(existing, client, message, eventListener, labels);
+            return false;
         } else {
-            createNewEvent(
-                    client, target, type, reason, message, component, eventListener, eventName);
+            Event event =
+                    createNewEvent(
+                            client,
+                            target,
+                            type,
+                            reason,
+                            message,
+                            component,
+                            eventListener,
+                            eventName);
+            setLabels(event, labels);
+            eventListener.accept(client.resource(event).createOrReplace());
             return true;
         }
     }
 
-    private static void createUpdatedEvent(
+    /**
+     * When the {@link #MESSAGE_KEY} exists in label, it's messageKey, otherwise the message is
+     * messageKey.
+     */
+    private static String getEventMessageKey(Event existing) {
+        Map<String, String> labels = getLabels(existing);
+        if (labels == null) {
+            return existing.getMessage();
+        }
+        String messageKey = labels.get(MESSAGE_KEY);
+        return messageKey == null ? existing.getMessage() : messageKey;
+    }
+
+    private static void updatedEventWithLabels(
             Event existing,
             KubernetesClient client,
             String message,
-            Consumer<Event> eventListener) {
+            Consumer<Event> eventListener,
+            @Nullable Map<String, String> labels) {
         existing.setLastTimestamp(Instant.now().toString());
         existing.setCount(existing.getCount() + 1);
         existing.setMessage(message);
+        setLabels(existing, labels);
         eventListener.accept(client.resource(existing).createOrReplace());
     }
 
-    private static void createNewEvent(
+    private static void setLabels(Event existing, @Nullable Map<String, String> labels) {
+        if (labels == null) {
+            return;
+        }
+        if (existing.getMetadata() == null) {
+            var metaData = new ObjectMeta();
+            metaData.setLabels(labels);
+        }
+        existing.getMetadata().setLabels(labels);
+    }
+
+    private static @Nullable Map<String, String> getLabels(Event existing) {
+        if (existing.getMetadata() == null) {
+            return null;
+        }
+        return existing.getMetadata().getLabels();
+    }
+
+    private static Event createNewEvent(
             KubernetesClient client,
             HasMetadata target,
             EventRecorder.Type type,
@@ -162,8 +221,7 @@ public class EventUtils {
             EventRecorder.Component component,
             Consumer<Event> eventListener,
             String eventName) {
-        Event event = buildEvent(target, type, reason, message, component, eventName);
-        eventListener.accept(client.resource(event).createOrReplace());
+        return buildEvent(target, type, reason, message, component, eventName);
     }
 
     private static Event buildEvent(
