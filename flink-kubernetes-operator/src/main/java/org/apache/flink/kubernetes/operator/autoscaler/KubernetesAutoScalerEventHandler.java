@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 
 /** An event handler which posts events to the Kubernetes events API. */
 public class KubernetesAutoScalerEventHandler
-        implements AutoScalerEventHandler<ResourceID, KubernetesJobAutoScalerContext> {
+        extends AutoScalerEventHandler<ResourceID, KubernetesJobAutoScalerContext> {
 
     public static final String PARALLELISM_MAP_KEY = "parallelismMap";
     private final EventRecorder eventRecorder;
@@ -69,8 +69,7 @@ public class KubernetesAutoScalerEventHandler
             boolean scaled,
             Duration interval) {
         if (scaled) {
-            AutoScalerEventHandler.super.handleScalingEvent(
-                    context, scalingSummaries, scaled, null);
+            super.handleScalingEvent(context, scalingSummaries, scaled, null);
         } else {
             var conf = context.getConfiguration();
             var scalingReport = AutoScalerEventHandler.scalingReport(scalingSummaries, scaled);
