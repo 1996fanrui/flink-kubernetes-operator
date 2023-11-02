@@ -45,36 +45,36 @@ under the License.
             <version>${flink.version}</version>
             <exclusions>
                 <exclusion>
+                    <groupId>org.apache.flink</groupId>
                     <artifactId>flink-rpc-akka-loader</artifactId>
-                    <groupId>org.apache.flink</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.flink</groupId>
                     <artifactId>flink-shaded-zookeeper-3</artifactId>
-                    <groupId>org.apache.flink</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.flink</groupId>
                     <artifactId>flink-queryable-state-client-java</artifactId>
-                    <groupId>org.apache.flink</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>snappy-java</artifactId>
                     <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>flink-hadoop-fs</artifactId>
                     <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-hadoop-fs</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.commons</groupId>
                     <artifactId>commons-compress</artifactId>
-                    <groupId>org.apache.commons</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.commons</groupId>
                     <artifactId>commons-text</artifactId>
-                    <groupId>org.apache.commons</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>lz4-java</artifactId>
                     <groupId>org.lz4</groupId>
+                    <artifactId>lz4-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

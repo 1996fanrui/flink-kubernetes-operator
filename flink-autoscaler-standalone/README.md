@@ -5,11 +5,15 @@
 `Flink Autoscaler Standalone` is an implementation of `Flink Autoscaler`, it runs as 
 a separate java process. It computes the reasonable parallelism of all job vertices 
 by monitoring the metrics, such as: processing rate, busy time, etc. Please see 
-[FLIP-271](https://cwiki.apache.org/confluence/display/FLINK/FLIP-271%3A+Autoscaling) 
+[Autoscaler official doc](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/docs/custom-resource/autoscaler/) 
 for an overview of how autoscaling works.
 
-`Flink Autoscaler Standalone` rescales flink job in-place by rescale api of 
-[FLIP-291](https://cwiki.apache.org/confluence/x/9pRbDg).
+`Flink Autoscaler Standalone` rescales flink job in-place by rest api of 
+[Externalized Declarative Resource Management](https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/elastic_scaling/#externalized-declarative-resource-management).
+
+Kubernetes Operator is well integrated with Autoscaler, we strongly recommend using 
+Kubernetes Operator directly for the kubernetes flink jobs, and only flink jobs in 
+non-kubernetes environments use Autoscaler Standalone.
 
 ## How To Use
 
