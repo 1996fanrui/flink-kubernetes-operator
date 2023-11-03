@@ -64,7 +64,7 @@ public class StandaloneAutoscalerEntrypoint {
 
     public static <KEY, Context extends JobAutoScalerContext<KEY>> void main(String[] args) {
         var parameters = ParameterTool.fromArgs(args);
-        LOG.info("The standalone autoscaler is started, parameters: {}", parameters);
+        LOG.info("The standalone autoscaler is started, parameters: {}", parameters.toMap());
 
         var scalingInterval = DEFAULT_SCALING_INTERVAL;
         if (parameters.get(SCALING_INTERVAL) != null) {

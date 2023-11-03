@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /** Test for {@link StandaloneAutoscalerExecutor}. */
 class StandaloneAutoscalerExecutorTest {
@@ -93,7 +94,7 @@ class StandaloneAutoscalerExecutorTest {
                         });
 
         // scaling shouldn't throw exception even if fetch fails
-        autoscalerExecutor.scaling();
+        assertDoesNotThrow(autoscalerExecutor::scaling);
     }
 
     private static JobAutoScalerContext<JobID> createJobAutoScalerContext() {
