@@ -10,6 +10,8 @@ for an overview of how autoscaling works.
 
 `Flink Autoscaler Standalone` rescales flink job in-place by rest api of 
 [Externalized Declarative Resource Management](https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/elastic_scaling/#externalized-declarative-resource-management).
+`RescaleApiScalingRealizer` is the default implementation of `ScalingRealizer`, 
+it uses the Rescale API to apply parallelism changes.
 
 Kubernetes Operator is well integrated with Autoscaler, we strongly recommend using 
 Kubernetes Operator directly for the kubernetes flink jobs, and only flink jobs in 
@@ -60,17 +62,7 @@ In general, the host and port are the same as Flink WebUI.
 
 ## Extensibility of autoscaler standalone
 
-`Autoscaler` as a generic autoscaler component defines a series of generic interfaces:
-
-- **AutoScalerEventHandler** : Handling autoscaler events, such as: ScalingReport, 
-  AutoscalerError, etc. It logs events by default.
-- **AutoScalerStateStore** : Storing all state during scaling. `InMemoryAutoScalerStateStore` 
-  is the default implementation, it's based on the Java Heap, so the state will be discarded 
-  after process restarts. We will implement persistent State Store in the future, such as
-  : `JdbcAutoScalerStateStore`.
-- **ScalingRealizer** : Applying scaling actions. `RescaleApiScalingRealizer` is the default
-  implementation, it uses the Rescale API to apply parallelism changes.
-- **JobAutoScalerContext** : Including all details related to the current job.
+Please click [here](../flink-autoscaler/README.md) to check out extensibility of generic autoscaler.
 
 `Autoscaler Standalone` isn't responsible for job management, so it doesn't have job information.
 `Autoscaler Standalone` defines the `JobListFetcher` interface in order to get the 
