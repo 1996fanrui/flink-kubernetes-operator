@@ -22,9 +22,6 @@ import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.ScalingSummary;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 
 import java.time.Duration;
@@ -35,45 +32,32 @@ import static org.apache.flink.autoscaler.metrics.ScalingMetric.TARGET_DATA_RATE
 import static org.apache.flink.autoscaler.metrics.ScalingMetric.TRUE_PROCESSING_RATE;
 
 /**
- * Handler for autoscaler events, it logs events by default.
+ * Handler for autoscaler events.
  *
  * @param <KEY> The job key.
  * @param <Context> Instance of JobAutoScalerContext.
  */
 @Experimental
-public class AutoScalerEventHandler<KEY, Context extends JobAutoScalerContext<KEY>> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(AutoScalerEventHandler.class);
-
-    public static final String SCALING_SUMMARY_ENTRY =
+public interface AutoScalerEventHandler<KEY, Context extends JobAutoScalerContext<KEY>> {
+    String SCALING_SUMMARY_ENTRY =
             " Vertex ID %s | Parallelism %d -> %d | Processing capacity %.2f -> %.2f | Target data rate %.2f";
-    public static final String SCALING_SUMMARY_HEADER_SCALING_DISABLED =
-            "Recommended parallelism change:";
-    public static final String SCALING_SUMMARY_HEADER_SCALING_ENABLED = "Scaling vertices:";
-    public static final String SCALING_REPORT_REASON = "ScalingReport";
-    public static final String SCALING_REPORT_KEY = "ScalingExecutor";
+    String SCALING_SUMMARY_HEADER_SCALING_DISABLED = "Recommended parallelism change:";
+    String SCALING_SUMMARY_HEADER_SCALING_ENABLED = "Scaling vertices:";
+    String SCALING_REPORT_REASON = "ScalingReport";
+    String SCALING_REPORT_KEY = "ScalingExecutor";
 
     /**
      * Handle the event.
      *
      * @param interval Define the interval to suppress duplicate events. No dedupe if null.
      */
-    public void handleEvent(
+    void handleEvent(
             Context context,
             Type type,
             String reason,
             String message,
             @Nullable String messageKey,
-            @Nullable Duration interval) {
-        LOG.info(
-                "Autoscaler event, job key : {}, type : {}, reason : {}, message : {}, messageKey : {}, interval : {}.",
-                context.getJobKey(),
-                type,
-                reason,
-                message,
-                messageKey,
-                interval);
-    }
+            @Nullable Duration interval);
 
     /**
      * Handle scaling reports.
@@ -82,7 +66,7 @@ public class AutoScalerEventHandler<KEY, Context extends JobAutoScalerContext<KE
      * @param scaled Whether AutoScaler actually scaled the Flink job or just generate advice for
      *     scaling.
      */
-    public void handleScalingEvent(
+    default void handleScalingEvent(
             Context context,
             Map<JobVertexID, ScalingSummary> scalingSummaries,
             boolean scaled,
@@ -98,7 +82,7 @@ public class AutoScalerEventHandler<KEY, Context extends JobAutoScalerContext<KE
                 interval);
     }
 
-    public static String scalingReport(
+    static String scalingReport(
             Map<JobVertexID, ScalingSummary> scalingSummaries, boolean scalingEnabled) {
         StringBuilder sb =
                 new StringBuilder(
@@ -120,7 +104,7 @@ public class AutoScalerEventHandler<KEY, Context extends JobAutoScalerContext<KE
     }
 
     /** The type of the events. */
-    public enum Type {
+    enum Type {
         Normal,
         Warning
     }

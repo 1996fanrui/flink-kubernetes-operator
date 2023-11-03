@@ -35,7 +35,7 @@ import static org.apache.flink.autoscaler.config.AutoScalerOptions.SCALING_ENABL
 
 /** Testing {@link AutoScalerEventHandler} implementation. */
 public class TestingEventCollector<KEY, Context extends JobAutoScalerContext<KEY>>
-        extends AutoScalerEventHandler<KEY, Context> {
+        implements AutoScalerEventHandler<KEY, Context> {
 
     public final LinkedList<Event<KEY, Context>> events = new LinkedList<>();
 
