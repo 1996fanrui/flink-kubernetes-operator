@@ -17,110 +17,109 @@
 
 package org.apache.flink.autoscaler.jdbc;
 
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.ScalingSummary;
 import org.apache.flink.autoscaler.ScalingTracking;
 import org.apache.flink.autoscaler.metrics.CollectedMetrics;
 import org.apache.flink.autoscaler.state.AutoScalerStateStore;
+import org.apache.flink.autoscaler.utils.AutoScalerSerDeModule;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.SortedMap;
 
-/**
- * An AutoscalerStateStore which persists its state in Kubernetes ConfigMaps.
- */
-public class JDBCAutoScalerStateStore<KEY, Context extends JobAutoScalerContext<KEY>>
-        implements AutoScalerStateStore<KEY, Context> {
+/** An AutoscalerStateStore which persists its state in JDBC related database. */
+@Experimental
+public class JDBCAutoScalerStateStore<KEY>
+        implements AutoScalerStateStore<KEY, JobAutoScalerContext<KEY>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(JDBCAutoScalerStateStore.class);
 
-    private enum StateType {
-        SCALING_HISTORY,
-        SCALING_TRACKING,
-        COLLECTED_METRICS,
-        PARALLELISM_OVERRIDES
-    }
+    private final JobKeySerializer<KEY> jobKeySerializer;
+    private final JDBCStore jdbcStore;
 
-    protected static final String SCALING_HISTORY_KEY = "scalingHistory";
-    protected static final String SCALING_TRACKING_KEY = "scalingTracking";
-    protected static final String COLLECTED_METRICS_KEY = "collectedMetrics";
-    protected static final String PARALLELISM_OVERRIDES_KEY = "parallelismOverrides";
+    protected static final ObjectMapper YAML_MAPPER =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .registerModule(new AutoScalerSerDeModule());
+
+    public JDBCAutoScalerStateStore(JobKeySerializer<KEY> jobKeySerializer) throws SQLException {
+        this.jobKeySerializer = jobKeySerializer;
+        this.jdbcStore = new JDBCStore(null);
+    }
 
     @Override
-    public void storeScalingHistory(Context jobContext, Map<JobVertexID, SortedMap<Instant, ScalingSummary>> scalingHistory) throws Exception {
-
-    }
+    public void storeScalingHistory(
+            JobAutoScalerContext<KEY> jobContext,
+            Map<JobVertexID, SortedMap<Instant, ScalingSummary>> scalingHistory)
+            throws Exception {}
 
     @Nonnull
     @Override
-    public Map<JobVertexID, SortedMap<Instant, ScalingSummary>> getScalingHistory(Context jobContext) throws Exception {
+    public Map<JobVertexID, SortedMap<Instant, ScalingSummary>> getScalingHistory(
+            JobAutoScalerContext<KEY> jobContext) throws Exception {
         return null;
     }
 
     @Override
-    public void storeScalingTracking(Context jobContext, ScalingTracking scalingTrack) throws Exception {
-
-    }
+    public void storeScalingTracking(
+            JobAutoScalerContext<KEY> jobContext, ScalingTracking scalingTrack) throws Exception {}
 
     @Override
-    public ScalingTracking getScalingTracking(Context jobContext) throws Exception {
+    public ScalingTracking getScalingTracking(JobAutoScalerContext<KEY> jobContext)
+            throws Exception {
         return null;
     }
 
     @Override
-    public void removeScalingHistory(Context jobContext) throws Exception {
-
-    }
+    public void removeScalingHistory(JobAutoScalerContext<KEY> jobContext) throws Exception {}
 
     @Override
-    public void storeCollectedMetrics(Context jobContext, SortedMap<Instant, CollectedMetrics> metrics) throws Exception {
-
-    }
+    public void storeCollectedMetrics(
+            JobAutoScalerContext<KEY> jobContext, SortedMap<Instant, CollectedMetrics> metrics)
+            throws Exception {}
 
     @Nonnull
     @Override
-    public SortedMap<Instant, CollectedMetrics> getCollectedMetrics(Context jobContext) throws Exception {
+    public SortedMap<Instant, CollectedMetrics> getCollectedMetrics(
+            JobAutoScalerContext<KEY> jobContext) throws Exception {
         return null;
     }
 
     @Override
-    public void removeCollectedMetrics(Context jobContext) throws Exception {
-
-    }
+    public void removeCollectedMetrics(JobAutoScalerContext<KEY> jobContext) throws Exception {}
 
     @Override
-    public void storeParallelismOverrides(Context jobContext, Map<String, String> parallelismOverrides) throws Exception {
-
-    }
+    public void storeParallelismOverrides(
+            JobAutoScalerContext<KEY> jobContext, Map<String, String> parallelismOverrides)
+            throws Exception {}
 
     @Nonnull
     @Override
-    public Map<String, String> getParallelismOverrides(Context jobContext) throws Exception {
+    public Map<String, String> getParallelismOverrides(JobAutoScalerContext<KEY> jobContext)
+            throws Exception {
         return null;
     }
 
     @Override
-    public void removeParallelismOverrides(Context jobContext) throws Exception {
-
-    }
+    public void removeParallelismOverrides(JobAutoScalerContext<KEY> jobContext) throws Exception {}
 
     @Override
-    public void clearAll(Context jobContext) throws Exception {
-
-    }
+    public void clearAll(JobAutoScalerContext<KEY> jobContext) throws Exception {}
 
     @Override
-    public void flush(Context jobContext) throws Exception {
-
-    }
+    public void flush(JobAutoScalerContext<KEY> jobContext) throws Exception {}
 
     @Override
-    public void removeInfoFromCache(KEY jobKey) {
-
-    }
+    public void removeInfoFromCache(KEY jobKey) {}
 }
