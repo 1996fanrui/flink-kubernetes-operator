@@ -19,11 +19,11 @@ package org.apache.flink.autoscaler.jdbc;
 
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-/** Test for MySQL 5.7. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase {
+/** Test for MySQL 8.x. */
+public class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase {
 
     @RegisterExtension
-    private static final MySQLExtension mysqlExtension = new MySQLExtension("5.7.41");
+    private static final MySQLExtension mysqlExtension = new MySQLExtension("8.0.32");
 
     public JDBCStore getJdbcStore() throws Exception {
         return new JDBCStore(mysqlExtension.getConnection());

@@ -25,11 +25,10 @@ import org.testcontainers.containers.MySQLContainer;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.Statement;
 import java.util.List;
 
 /** The extension of MySQL 5.7. */
-public class MySQL57Extension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
+public class MySQLExtension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
 
     private static final String MYSQL_INIT_SCRIPT = "mysql_ddl.sql";
     private static final String DATABASE_NAME = "flink_autoscaler";
@@ -37,37 +36,39 @@ public class MySQL57Extension implements BeforeAllCallback, AfterAllCallback, Af
     private static final String PASSWORD = "123456";
     private static final List<String> TABLES = List.of("t_flink_autoscaler_state_store");
 
-    private static final MySQLContainer<?> CONTAINER =
-            new MySQLContainer<>("mysql:5.7.41")
-                    .withCommand("--character-set-server=utf8")
-                    .withDatabaseName(DATABASE_NAME)
-                    .withUsername(USER_NAME)
-                    .withPassword(PASSWORD)
-                    .withInitScript(MYSQL_INIT_SCRIPT)
-                    .withEnv("MYSQL_ROOT_HOST", "%");
+    private final MySQLContainer<?> container;
 
-    public static Connection getConnection() throws Exception {
+    public MySQLExtension(String mysqlVersion) {
+        this.container =
+                new MySQLContainer<>(String.format("mysql:%s", mysqlVersion))
+                        .withCommand("--character-set-server=utf8")
+                        .withDatabaseName(DATABASE_NAME)
+                        .withUsername(USER_NAME)
+                        .withPassword(PASSWORD)
+                        .withInitScript(MYSQL_INIT_SCRIPT)
+                        .withEnv("MYSQL_ROOT_HOST", "%");
+    }
+
+    public Connection getConnection() throws Exception {
         return DriverManager.getConnection(
-                String.format("%s/%s", CONTAINER.getJdbcUrl(), CONTAINER.getDatabaseName()),
-                CONTAINER.getUsername(),
-                CONTAINER.getPassword());
+                container.getJdbcUrl(), container.getUsername(), container.getPassword());
     }
 
     @Override
     public void beforeAll(ExtensionContext extensionContext) {
-        CONTAINER.start();
+        container.start();
     }
 
     @Override
     public void afterAll(ExtensionContext extensionContext) {
-        CONTAINER.stop();
+        container.stop();
     }
 
     @Override
     public void afterEach(ExtensionContext extensionContext) throws Exception {
         Connection conn = getConnection();
         for (var tableName : TABLES) {
-            try (Statement st = conn.createStatement()) {
+            try (var st = conn.createStatement()) {
                 st.executeUpdate(String.format("DELETE from %s.%s", DATABASE_NAME, tableName));
             }
         }
