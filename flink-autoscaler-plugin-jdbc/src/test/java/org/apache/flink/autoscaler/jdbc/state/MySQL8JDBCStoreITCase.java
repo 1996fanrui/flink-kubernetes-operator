@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc;
+package org.apache.flink.autoscaler.jdbc.state;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQLExtension;
 
-/** The state type. */
-public enum StateType {
-    SCALING_HISTORY,
-    SCALING_TRACKING,
-    COLLECTED_METRICS,
-    PARALLELISM_OVERRIDES;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-    public static StateType valueOf(int ordinal) {
-        checkArgument(
-                ordinal >= 0 && ordinal < values().length, "It's a out-of-bounded ordinal index.");
-        return values()[ordinal];
+/** Test for MySQL 8.x. */
+public class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase {
+
+    @RegisterExtension
+    private static final MySQLExtension mysqlExtension = new MySQLExtension("8.0.32");
+
+    public JDBCStore getJdbcStore() throws Exception {
+        return new JDBCStore(mysqlExtension.getConnection());
     }
 }

@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc;
+package org.apache.flink.autoscaler.jdbc.state;
 
 import javax.annotation.Nonnull;
 
-import static org.apache.flink.autoscaler.jdbc.State.NEEDS_CREATE;
-import static org.apache.flink.autoscaler.jdbc.State.NEEDS_DELETE;
-import static org.apache.flink.autoscaler.jdbc.State.NEEDS_UPDATE;
-import static org.apache.flink.autoscaler.jdbc.State.NOT_NEEDED;
-import static org.apache.flink.autoscaler.jdbc.State.UP_TO_DATE;
+import static org.apache.flink.autoscaler.jdbc.state.State.NEEDS_CREATE;
+import static org.apache.flink.autoscaler.jdbc.state.State.NEEDS_DELETE;
+import static org.apache.flink.autoscaler.jdbc.state.State.NEEDS_UPDATE;
+import static org.apache.flink.autoscaler.jdbc.state.State.NOT_NEEDED;
+import static org.apache.flink.autoscaler.jdbc.state.State.UP_TO_DATE;
 
 /**
  * The state of state type about the cache and database.

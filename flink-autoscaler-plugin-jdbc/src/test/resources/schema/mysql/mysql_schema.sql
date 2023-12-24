@@ -23,7 +23,7 @@ create table `t_flink_autoscaler_state_store`
 (
     `id`            bigint       not null auto_increment,
     `update_time`   datetime     not null default current_timestamp on update current_timestamp comment 'update time',
-    `job_key`       varchar(255) not null comment 'The job key',
+    `job_key`       varchar(191) not null comment 'The job key',
     `state_type_id` tinyint      not null comment 'The id of state type',
     `state_value`   longtext     not null comment 'The real state',
     primary key (`id`) using btree,

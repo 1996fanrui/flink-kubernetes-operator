@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc;
+package org.apache.flink.autoscaler.jdbc.testutils.databases.mysql;
 
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -27,10 +27,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.List;
 
-/** The extension of MySQL 5.7. */
+/** The extension of MySQL. */
 public class MySQLExtension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
 
-    private static final String MYSQL_INIT_SCRIPT = "mysql_ddl.sql";
+    private static final String MYSQL_INIT_SCRIPT = "schema/mysql/mysql_schema.sql";
     private static final String DATABASE_NAME = "flink_autoscaler";
     private static final String USER_NAME = "root";
     private static final String PASSWORD = "123456";
@@ -69,7 +69,7 @@ public class MySQLExtension implements BeforeAllCallback, AfterAllCallback, Afte
         Connection conn = getConnection();
         for (var tableName : TABLES) {
             try (var st = conn.createStatement()) {
-                st.executeUpdate(String.format("DELETE from %s.%s", DATABASE_NAME, tableName));
+                st.executeUpdate(String.format("DELETE from %s", tableName));
             }
         }
     }

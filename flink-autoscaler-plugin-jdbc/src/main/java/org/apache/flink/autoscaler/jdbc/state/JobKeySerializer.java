@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc;
+package org.apache.flink.autoscaler.jdbc.state;
 
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.apache.flink.annotation.Experimental;
 
-/** Test for MySQL 5.7. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase {
+/**
+ * The serializer of job key.
+ *
+ * @param <KEY> job key.
+ */
+@Experimental
+public interface JobKeySerializer<KEY> {
 
-    @RegisterExtension
-    private static final MySQLExtension mysqlExtension = new MySQLExtension("5.7.41");
+    String serialize(KEY originalJobKey);
 
-    public JDBCStore getJdbcStore() throws Exception {
-        return new JDBCStore(mysqlExtension.getConnection());
-    }
+    KEY deserialize(String serializedJobKey);
 }

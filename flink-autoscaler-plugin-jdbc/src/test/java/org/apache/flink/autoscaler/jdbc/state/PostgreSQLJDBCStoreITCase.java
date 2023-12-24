@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc;
+package org.apache.flink.autoscaler.jdbc.state;
+
+import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLExtension;
 
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-/** Test for MySQL 8.x. */
-public class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase {
+/** Test for PostgreSQL 15.1. */
+public class PostgreSQLJDBCStoreITCase extends AbstractJDBCStoreITCase {
 
     @RegisterExtension
-    private static final MySQLExtension mysqlExtension = new MySQLExtension("8.0.32");
+    private static final PostgreSQLExtension postgreSQLExtension = new PostgreSQLExtension("15.1");
 
     public JDBCStore getJdbcStore() throws Exception {
-        return new JDBCStore(mysqlExtension.getConnection());
+        return new JDBCStore(postgreSQLExtension.getConnection());
     }
 }
