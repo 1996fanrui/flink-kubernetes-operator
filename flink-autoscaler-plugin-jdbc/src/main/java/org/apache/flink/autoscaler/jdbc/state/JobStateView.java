@@ -29,7 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.*;
+import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.NEEDS_CREATE;
+import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.NEEDS_DELETE;
+import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.NEEDS_UPDATE;
+import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.NOT_NEEDED;
+import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.UP_TO_DATE;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The view of job state. */
