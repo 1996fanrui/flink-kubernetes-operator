@@ -17,19 +17,7 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQLExtension;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL56TestBase;
 
-import org.junit.jupiter.api.extension.RegisterExtension;
-
-import java.sql.Connection;
-
-/** Test for MySQL 5.6. */
-public class MySQL56JDBCStoreITCase extends AbstractJDBCStoreITCase {
-
-    @RegisterExtension
-    private static final MySQLExtension mysqlExtension = new MySQLExtension("5.6.51");
-
-    public Connection getConnection() throws Exception {
-        return mysqlExtension.getConnection();
-    }
-}
+/** Test {@link JDBCStore} via MySQL 5.6. */
+public class MySQL56JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL56TestBase {}

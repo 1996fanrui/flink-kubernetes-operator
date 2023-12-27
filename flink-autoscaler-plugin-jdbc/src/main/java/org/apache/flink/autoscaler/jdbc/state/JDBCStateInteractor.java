@@ -28,13 +28,13 @@ import java.util.List;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** Responsible for interacting with the database. */
-public class JDBCInteractor {
+public class JDBCStateInteractor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JDBCInteractor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JDBCStateInteractor.class);
 
     private final Connection conn;
 
-    public JDBCInteractor(Connection conn) {
+    public JDBCStateInteractor(Connection conn) {
         this.conn = conn;
     }
 

@@ -17,7 +17,11 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.junit.jupiter.api.Test;
 
-/** Test {@link JDBCStore} via MySQL 5.7. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}
+/** Test for {@link JobStateView}. */
+class JobStateViewTest {
+
+    @Test
+    void test() {}
+}

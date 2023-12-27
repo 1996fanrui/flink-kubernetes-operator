@@ -15,9 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc.state;
+package org.apache.flink.autoscaler.jdbc.testutils.databases.postgres;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.DatabaseTest;
 
-/** Test {@link JDBCStore} via MySQL 5.7. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import java.sql.Connection;
+
+/** PostgreSQL database for testing. */
+public interface PostgreSQLTestBase extends DatabaseTest {
+
+    @RegisterExtension PostgreSQLExtension POSTGRE_SQL_EXTENSION = new PostgreSQLExtension("15.1");
+
+    default Connection getConnection() throws Exception {
+        return POSTGRE_SQL_EXTENSION.getConnection();
+    }
+}

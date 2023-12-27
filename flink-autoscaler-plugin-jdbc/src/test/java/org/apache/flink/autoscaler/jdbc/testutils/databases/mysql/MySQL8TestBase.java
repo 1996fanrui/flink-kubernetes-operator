@@ -15,9 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc.state;
+package org.apache.flink.autoscaler.jdbc.testutils.databases.mysql;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.DatabaseTest;
 
-/** Test {@link JDBCStore} via MySQL 5.7. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import java.sql.Connection;
+
+/** MySQL 8.x database for testing. */
+public interface MySQL8TestBase extends DatabaseTest {
+
+    @RegisterExtension MySQLExtension MYSQL_EXTENSION = new MySQLExtension("8.0.32");
+
+    default Connection getConnection() throws Exception {
+        return MYSQL_EXTENSION.getConnection();
+    }
+}

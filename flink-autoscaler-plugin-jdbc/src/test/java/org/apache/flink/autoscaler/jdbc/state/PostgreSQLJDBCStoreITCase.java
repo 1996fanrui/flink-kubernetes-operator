@@ -17,19 +17,8 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLExtension;
-
-import org.junit.jupiter.api.extension.RegisterExtension;
-
-import java.sql.Connection;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLTestBase;
 
 /** Test for PostgreSQL 15.1. */
-public class PostgreSQLJDBCStoreITCase extends AbstractJDBCStoreITCase {
-
-    @RegisterExtension
-    private static final PostgreSQLExtension postgreSQLExtension = new PostgreSQLExtension("15.1");
-
-    public Connection getConnection() throws Exception {
-        return postgreSQLExtension.getConnection();
-    }
-}
+public class PostgreSQLJDBCStoreITCase extends AbstractJDBCStoreITCase
+        implements PostgreSQLTestBase {}

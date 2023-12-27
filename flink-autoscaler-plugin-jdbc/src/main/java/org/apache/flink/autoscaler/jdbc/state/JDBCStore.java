@@ -33,10 +33,10 @@ public class JDBCStore {
 
     private final ConcurrentHashMap<String, JobStateView> cache = new ConcurrentHashMap<>();
 
-    private final JDBCInteractor jdbcInteractor;
+    private final JDBCStateInteractor jdbcStateInteractor;
 
-    public JDBCStore(JDBCInteractor jdbcInteractor) throws SQLException {
-        this.jdbcInteractor = jdbcInteractor;
+    public JDBCStore(JDBCStateInteractor jdbcStateInteractor) throws SQLException {
+        this.jdbcStateInteractor = jdbcStateInteractor;
 
         //        String url1 = "jdbc:mysql://localhost:3306/mydatabase";
         // TODO
@@ -96,6 +96,6 @@ public class JDBCStore {
     }
 
     private JobStateView createJobStateView(String jobKey) throws Exception {
-        return new JobStateView(jdbcInteractor, jobKey);
+        return new JobStateView(jdbcStateInteractor, jobKey);
     }
 }

@@ -136,7 +136,7 @@ public class JobStateView {
 
     private static final StateTransitioner STATE_TRANSITIONER = new StateTransitioner();
 
-    private final JDBCInteractor jdbcInteractor;
+    private final JDBCStateInteractor jdbcStateInteractor;
     private final String jobKey;
     private final HashMap<StateType, String> data;
 
@@ -147,10 +147,10 @@ public class JobStateView {
      */
     private final HashMap<StateType, State> states;
 
-    public JobStateView(JDBCInteractor jdbcInteractor, String jobKey) throws Exception {
-        this.jdbcInteractor = jdbcInteractor;
+    public JobStateView(JDBCStateInteractor jdbcStateInteractor, String jobKey) throws Exception {
+        this.jdbcStateInteractor = jdbcStateInteractor;
         this.jobKey = jobKey;
-        this.data = jdbcInteractor.queryData(jobKey);
+        this.data = jdbcStateInteractor.queryData(jobKey);
         this.states = generateStates(this.data);
     }
 
@@ -225,13 +225,13 @@ public class JobStateView {
             List<StateType> stateTypes = entry.getValue();
             switch (state) {
                 case NEEDS_CREATE:
-                    jdbcInteractor.createData(jobKey, stateTypes, data);
+                    jdbcStateInteractor.createData(jobKey, stateTypes, data);
                     break;
                 case NEEDS_DELETE:
-                    jdbcInteractor.deleteData(jobKey, stateTypes);
+                    jdbcStateInteractor.deleteData(jobKey, stateTypes);
                     break;
                 case NEEDS_UPDATE:
-                    jdbcInteractor.updateData(jobKey, stateTypes, data);
+                    jdbcStateInteractor.updateData(jobKey, stateTypes, data);
                     break;
                 default:
                     throw new IllegalStateException(String.format("Unknown state : %s", state));

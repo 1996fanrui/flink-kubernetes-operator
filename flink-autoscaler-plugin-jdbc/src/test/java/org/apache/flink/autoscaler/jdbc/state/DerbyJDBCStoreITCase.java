@@ -17,7 +17,7 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.derby.DerbyTestBase;
 
-/** Test {@link JDBCStore} via MySQL 5.7. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}
+/** Test {@link JDBCStore} via Derby database. */
+public class DerbyJDBCStoreITCase extends AbstractJDBCStoreITCase implements DerbyTestBase {}

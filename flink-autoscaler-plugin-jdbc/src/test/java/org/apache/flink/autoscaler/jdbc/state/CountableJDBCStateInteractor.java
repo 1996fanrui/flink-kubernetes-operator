@@ -22,15 +22,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Countable {@link JDBCInteractor}. */
-public class CountableJDBCInteractor extends JDBCInteractor {
+/** Countable {@link JDBCStateInteractor}. */
+public class CountableJDBCStateInteractor extends JDBCStateInteractor {
 
     private final AtomicLong queryCounter;
     private final AtomicLong deleteCounter;
     private final AtomicLong createCounter;
     private final AtomicLong updateCounter;
 
-    public CountableJDBCInteractor(Connection conn) {
+    public CountableJDBCStateInteractor(Connection conn) {
         super(conn);
         queryCounter = new AtomicLong();
         deleteCounter = new AtomicLong();

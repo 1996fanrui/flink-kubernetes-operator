@@ -17,22 +17,21 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
+import org.apache.flink.autoscaler.jdbc.testutils.databases.DatabaseTest;
+
 import org.junit.jupiter.api.Test;
 
-import java.sql.Connection;
 import java.util.Optional;
 
 import static org.apache.flink.autoscaler.jdbc.state.StateType.COLLECTED_METRICS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The abstract IT case for {@link JDBCStore}. */
-abstract class AbstractJDBCStoreITCase {
-
-    protected abstract Connection getConnection() throws Exception;
+abstract class AbstractJDBCStoreITCase implements DatabaseTest {
 
     @Test
     void testCreateAndGet() throws Exception {
-        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var countableJDBCInteractor = new CountableJDBCStateInteractor(getConnection());
         var jdbcStore = new JDBCStore(countableJDBCInteractor);
         var jobKey = "aaa";
         var expectedValue1 = "value1";
@@ -68,7 +67,7 @@ abstract class AbstractJDBCStoreITCase {
 
     @Test
     void testUpdate() throws Exception {
-        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var countableJDBCInteractor = new CountableJDBCStateInteractor(getConnection());
         var jdbcStore = new JDBCStore(countableJDBCInteractor);
         var jobKey = "aaa";
         var expectedValue1 = "value1";
@@ -77,7 +76,7 @@ abstract class AbstractJDBCStoreITCase {
 
     @Test
     void testMultipleStateTypes() throws Exception {
-        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var countableJDBCInteractor = new CountableJDBCStateInteractor(getConnection());
         var jdbcStore = new JDBCStore(countableJDBCInteractor);
         var jobKey = "aaa";
         var expectedValue1 = "value1";
@@ -86,7 +85,7 @@ abstract class AbstractJDBCStoreITCase {
 
     @Test
     void testMultipleJobKeys() throws Exception {
-        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var countableJDBCInteractor = new CountableJDBCStateInteractor(getConnection());
         var jdbcStore = new JDBCStore(countableJDBCInteractor);
         var jobKey = "aaa";
         var expectedValue1 = "value1";
@@ -94,7 +93,7 @@ abstract class AbstractJDBCStoreITCase {
     }
 
     private void assertCountableJDBCInteractor(
-            CountableJDBCInteractor jdbcInteractor,
+            CountableJDBCStateInteractor jdbcInteractor,
             long expectedQueryCounter,
             long expectedDeleteCounter,
             long expectedUpdateCounter,
@@ -114,7 +113,7 @@ abstract class AbstractJDBCStoreITCase {
 
     private Optional<String> getValueFromDatabase(String jobKey, StateType stateType)
             throws Exception {
-        var jdbcInteractor = new JDBCInteractor(getConnection());
+        var jdbcInteractor = new JDBCStateInteractor(getConnection());
         return Optional.ofNullable(jdbcInteractor.queryData(jobKey).get(stateType));
     }
 }

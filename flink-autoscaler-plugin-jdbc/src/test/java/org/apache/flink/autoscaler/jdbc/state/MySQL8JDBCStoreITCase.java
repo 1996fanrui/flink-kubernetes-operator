@@ -17,19 +17,7 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQLExtension;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL8TestBase;
 
-import org.junit.jupiter.api.extension.RegisterExtension;
-
-import java.sql.Connection;
-
-/** Test for MySQL 8.x. */
-public class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase {
-
-    @RegisterExtension
-    private static final MySQLExtension mysqlExtension = new MySQLExtension("8.0.32");
-
-    public Connection getConnection() throws Exception {
-        return mysqlExtension.getConnection();
-    }
-}
+/** Test {@link JDBCStore} via MySQL 8. */
+public class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL8TestBase {}
