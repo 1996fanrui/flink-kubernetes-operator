@@ -22,7 +22,6 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,11 +33,12 @@ public class JDBCStore {
 
     private final ConcurrentHashMap<String, JobStateView> cache = new ConcurrentHashMap<>();
 
-    private final Connection conn;
+    private final JDBCInteractor jdbcInteractor;
 
-    public JDBCStore(Connection conn) throws SQLException {
+    public JDBCStore(JDBCInteractor jdbcInteractor) throws SQLException {
+        this.jdbcInteractor = jdbcInteractor;
+
         //        String url1 = "jdbc:mysql://localhost:3306/mydatabase";
-        this.conn = conn;
         // TODO
         //        conn.setAutoCommit(false);
     }
@@ -96,6 +96,6 @@ public class JDBCStore {
     }
 
     private JobStateView createJobStateView(String jobKey) throws Exception {
-        return new JobStateView(conn, jobKey);
+        return new JobStateView(jdbcInteractor, jobKey);
     }
 }

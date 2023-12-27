@@ -19,31 +19,102 @@ package org.apache.flink.autoscaler.jdbc.state;
 
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.util.Optional;
+
+import static org.apache.flink.autoscaler.jdbc.state.StateType.COLLECTED_METRICS;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** The abstract IT case for jdbc store. */
+/** The abstract IT case for {@link JDBCStore}. */
 abstract class AbstractJDBCStoreITCase {
 
-    protected abstract JDBCStore getJdbcStore() throws Exception;
+    protected abstract Connection getConnection() throws Exception;
 
     @Test
-    void testGetAndPut() throws Exception {
-        var jdbcStore = getJdbcStore();
+    void testCreateAndGet() throws Exception {
+        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var jdbcStore = new JDBCStore(countableJDBCInteractor);
         var jobKey = "aaa";
-
-        var serializedState = jdbcStore.getSerializedState(jobKey, StateType.COLLECTED_METRICS);
-        assertThat(serializedState).isEmpty();
-
         var expectedValue1 = "value1";
-        jdbcStore.putSerializedState(jobKey, StateType.COLLECTED_METRICS, expectedValue1);
+
+        assertCountableJDBCInteractor(countableJDBCInteractor, 0, 0, 0, 0);
+        assertThat(jdbcStore.getSerializedState(jobKey, COLLECTED_METRICS)).isEmpty();
+        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 0);
+
+        // Get from cache, and it shouldn't exist in database.
+        jdbcStore.putSerializedState(jobKey, COLLECTED_METRICS, expectedValue1);
+        assertThat(jdbcStore.getSerializedState(jobKey, COLLECTED_METRICS))
+                .hasValue(expectedValue1);
+        assertThat(getValueFromDatabase(jobKey, COLLECTED_METRICS)).isEmpty();
+        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 0);
+
+        // Get from cache after flushing, and it should exist in database.
         jdbcStore.flush(jobKey);
+        assertStateValueForCacheAndDatabase(jdbcStore, jobKey, COLLECTED_METRICS, expectedValue1);
+        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 1);
 
-        serializedState = jdbcStore.getSerializedState(jobKey, StateType.COLLECTED_METRICS);
-        assertThat(serializedState).hasValue(expectedValue1);
-
+        // Get from database for a old JDBC Store.
         jdbcStore.removeInfoFromCache(jobKey);
+        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 1);
+        assertStateValueForCacheAndDatabase(jdbcStore, jobKey, COLLECTED_METRICS, expectedValue1);
+        assertCountableJDBCInteractor(countableJDBCInteractor, 2, 0, 0, 1);
 
-        serializedState = jdbcStore.getSerializedState(jobKey, StateType.COLLECTED_METRICS);
-        assertThat(serializedState).hasValue(expectedValue1);
+        // Get from database for a new JDBC Store.
+        var newJdbcStore = new JDBCStore(countableJDBCInteractor);
+        assertStateValueForCacheAndDatabase(
+                newJdbcStore, jobKey, COLLECTED_METRICS, expectedValue1);
+        assertCountableJDBCInteractor(countableJDBCInteractor, 3, 0, 0, 1);
+    }
+
+    @Test
+    void testUpdate() throws Exception {
+        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var jdbcStore = new JDBCStore(countableJDBCInteractor);
+        var jobKey = "aaa";
+        var expectedValue1 = "value1";
+        // TODO
+    }
+
+    @Test
+    void testMultipleStateTypes() throws Exception {
+        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var jdbcStore = new JDBCStore(countableJDBCInteractor);
+        var jobKey = "aaa";
+        var expectedValue1 = "value1";
+        // TODO
+    }
+
+    @Test
+    void testMultipleJobKeys() throws Exception {
+        var countableJDBCInteractor = new CountableJDBCInteractor(getConnection());
+        var jdbcStore = new JDBCStore(countableJDBCInteractor);
+        var jobKey = "aaa";
+        var expectedValue1 = "value1";
+        // TODO
+    }
+
+    private void assertCountableJDBCInteractor(
+            CountableJDBCInteractor jdbcInteractor,
+            long expectedQueryCounter,
+            long expectedDeleteCounter,
+            long expectedUpdateCounter,
+            long expectedCreateCounter) {
+        assertThat(jdbcInteractor.getQueryCounter()).isEqualTo(expectedQueryCounter);
+        assertThat(jdbcInteractor.getDeleteCounter()).isEqualTo(expectedDeleteCounter);
+        assertThat(jdbcInteractor.getUpdateCounter()).isEqualTo(expectedUpdateCounter);
+        assertThat(jdbcInteractor.getCreateCounter()).isEqualTo(expectedCreateCounter);
+    }
+
+    private void assertStateValueForCacheAndDatabase(
+            JDBCStore jdbcStore, String jobKey, StateType stateType, String expectedValue)
+            throws Exception {
+        assertThat(jdbcStore.getSerializedState(jobKey, stateType)).hasValue(expectedValue);
+        assertThat(getValueFromDatabase(jobKey, stateType)).hasValue(expectedValue);
+    }
+
+    private Optional<String> getValueFromDatabase(String jobKey, StateType stateType)
+            throws Exception {
+        var jdbcInteractor = new JDBCInteractor(getConnection());
+        return Optional.ofNullable(jdbcInteractor.queryData(jobKey).get(stateType));
     }
 }

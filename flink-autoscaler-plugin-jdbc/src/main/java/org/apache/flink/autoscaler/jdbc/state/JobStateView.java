@@ -19,35 +19,120 @@ package org.apache.flink.autoscaler.jdbc.state;
 
 import org.apache.flink.annotation.VisibleForTesting;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
+import static org.apache.flink.autoscaler.jdbc.state.JobStateView.State.*;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The view of job state. */
 @NotThreadSafe
 public class JobStateView {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JDBCAutoScalerStateStore.class);
+    /**
+     * The state of state type about the cache and database.
+     *
+     * <p>Note: {@link #inLocally} and {@link #inDatabase} are only for understand, we don't use
+     * them.
+     */
+    enum State {
 
-    private static final PutStateTransitioner PUT_STATE_TRANSITIONER = new PutStateTransitioner();
-    private static final DeleteStateTransitioner DELETE_STATE_TRANSITIONER =
-            new DeleteStateTransitioner();
-    private static final FlushStateTransitioner FLUSH_STATE_TRANSITIONER =
-            new FlushStateTransitioner();
+        /** State doesn't exist at database, and it's not used so far, so it's not needed. */
+        NOT_NEEDED(false, false, false),
+        /** State is only stored locally, not created in JDBC database yet. */
+        NEEDS_CREATE(true, false, true),
+        /** State exists in JDBC database but there are newer local changes. */
+        NEEDS_UPDATE(true, true, true),
+        /** State is stored locally and in database, and they are same. */
+        UP_TO_DATE(true, true, false),
+        /** State is stored in database, but it's deleted in local. */
+        NEEDS_DELETE(false, true, true);
 
-    private final Connection conn;
+        /** The data of this state type is stored in locally when it is true. */
+        private final boolean inLocally;
 
+        /** The data of this state type is stored in database when it is true. */
+        private final boolean inDatabase;
+
+        /** The data of this state type is stored in database when it is true. */
+        private final boolean needFlush;
+
+        State(boolean inLocally, boolean inDatabase, boolean needFlush) {
+            this.inLocally = inLocally;
+            this.inDatabase = inDatabase;
+            this.needFlush = needFlush;
+        }
+
+        public boolean isNeedFlush() {
+            return needFlush;
+        }
+    }
+
+    /** Transition old state to the new state when some operations happen to cache or database. */
+    private static class StateTransitioner {
+
+        /** The transition when put data to cache. */
+        @Nonnull
+        public State putTransition(@Nonnull State oldState) {
+            switch (oldState) {
+                case NOT_NEEDED:
+                case NEEDS_CREATE:
+                    return NEEDS_CREATE;
+                case NEEDS_UPDATE:
+                case UP_TO_DATE:
+                case NEEDS_DELETE:
+                    return NEEDS_UPDATE;
+                default:
+                    throw new IllegalArgumentException(
+                            String.format("Unknown state : %s.", oldState));
+            }
+        }
+
+        /** The transition when delete data from cache. */
+        @Nonnull
+        public State deleteTransition(@Nonnull State oldState) {
+            switch (oldState) {
+                case NOT_NEEDED:
+                case NEEDS_CREATE:
+                    return NOT_NEEDED;
+                case NEEDS_UPDATE:
+                case UP_TO_DATE:
+                case NEEDS_DELETE:
+                    return NEEDS_DELETE;
+                default:
+                    throw new IllegalArgumentException(
+                            String.format("Unknown state : %s.", oldState));
+            }
+        }
+
+        /** The transition when flush data from cache to database. */
+        @Nonnull
+        public State flushTransition(@Nonnull State oldState) {
+            switch (oldState) {
+                case NOT_NEEDED:
+                case NEEDS_DELETE:
+                    return NOT_NEEDED;
+                case NEEDS_CREATE:
+                case NEEDS_UPDATE:
+                case UP_TO_DATE:
+                    return UP_TO_DATE;
+                default:
+                    throw new IllegalArgumentException(
+                            String.format("Unknown state : %s.", oldState));
+            }
+        }
+    }
+
+    private static final StateTransitioner STATE_TRANSITIONER = new StateTransitioner();
+
+    private final JDBCInteractor jdbcInteractor;
     private final String jobKey;
     private final HashMap<StateType, String> data;
 
@@ -58,10 +143,10 @@ public class JobStateView {
      */
     private final HashMap<StateType, State> states;
 
-    public JobStateView(Connection conn, String jobKey) throws Exception {
-        this.conn = conn;
+    public JobStateView(JDBCInteractor jdbcInteractor, String jobKey) throws Exception {
+        this.jdbcInteractor = jdbcInteractor;
         this.jobKey = jobKey;
-        this.data = queryFromDatabase(jobKey);
+        this.data = jdbcInteractor.queryData(jobKey);
         this.states = generateStates(this.data);
     }
 
@@ -69,9 +154,9 @@ public class JobStateView {
         final var states = new HashMap<StateType, State>();
         for (StateType stateType : StateType.values()) {
             if (data.containsKey(stateType)) {
-                states.put(stateType, State.UP_TO_DATE);
+                states.put(stateType, UP_TO_DATE);
             } else {
-                states.put(stateType, State.NOT_NEEDED);
+                states.put(stateType, NOT_NEEDED);
             }
         }
         return states;
@@ -83,7 +168,7 @@ public class JobStateView {
 
     public void put(StateType stateType, String value) {
         data.put(stateType, value);
-        updateState(stateType, PUT_STATE_TRANSITIONER);
+        updateState(stateType, STATE_TRANSITIONER::putTransition);
     }
 
     public void removeKey(StateType stateType) {
@@ -91,7 +176,7 @@ public class JobStateView {
         if (oldKey == null) {
             return;
         }
-        updateState(stateType, DELETE_STATE_TRANSITIONER);
+        updateState(stateType, STATE_TRANSITIONER::deleteTransition);
     }
 
     public void clear() {
@@ -102,7 +187,7 @@ public class JobStateView {
         while (iterator.hasNext()) {
             var stateType = iterator.next();
             iterator.remove();
-            updateState(stateType, DELETE_STATE_TRANSITIONER);
+            updateState(stateType, STATE_TRANSITIONER::deleteTransition);
         }
     }
 
@@ -136,24 +221,24 @@ public class JobStateView {
             List<StateType> stateTypes = entry.getValue();
             switch (state) {
                 case NEEDS_CREATE:
-                    createDataFromDatabase(jobKey, stateTypes);
+                    jdbcInteractor.createData(jobKey, stateTypes, data);
                     break;
                 case NEEDS_DELETE:
-                    deleteDataFromDatabase(jobKey, stateTypes);
+                    jdbcInteractor.deleteData(jobKey, stateTypes);
                     break;
                 case NEEDS_UPDATE:
-                    updateDataFromDatabase(jobKey, stateTypes);
+                    jdbcInteractor.updateData(jobKey, stateTypes, data);
                     break;
                 default:
                     throw new IllegalStateException(String.format("Unknown state : %s", state));
             }
             for (var stateType : stateTypes) {
-                updateState(stateType, FLUSH_STATE_TRANSITIONER);
+                updateState(stateType, STATE_TRANSITIONER::flushTransition);
             }
         }
     }
 
-    private void updateState(StateType stateType, StateTransition stateTransition) {
+    private void updateState(StateType stateType, Function<State, State> stateTransitioner) {
         states.compute(
                 stateType,
                 (type, oldState) -> {
@@ -161,90 +246,12 @@ public class JobStateView {
                             oldState != null,
                             "The state of each state type should be maintained in states. "
                                     + "It may be a bug, please raise a JIRA to Flink Community.");
-                    return stateTransition.transition(oldState);
+                    return stateTransitioner.apply(oldState);
                 });
     }
 
     @VisibleForTesting
     public Map<StateType, String> getDataReadOnly() {
         return Collections.unmodifiableMap(data);
-    }
-
-    // TODO extract it to a dataRetriever interface.
-    private HashMap<StateType, String> queryFromDatabase(String jobKey) throws SQLException {
-        var query =
-                "select state_type_id, state_value from t_flink_autoscaler_state_store where job_key = ?";
-        var data = new HashMap<StateType, String>();
-        try (var pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, jobKey);
-            var rs = pstmt.executeQuery();
-            while (rs.next()) {
-                var stateTypeId = rs.getInt("state_type_id");
-                var stateType = StateType.valueOf(stateTypeId);
-                var stateValue = rs.getString("state_value");
-                data.put(stateType, stateValue);
-            }
-        }
-        return data;
-    }
-
-    private void deleteDataFromDatabase(String jobKey, List<StateType> stateTypes)
-            throws SQLException {
-        var query =
-                String.format(
-                        "DELETE FROM t_flink_autoscaler_state_store where job_key = ? and state_type_id in (%s)",
-                        String.join(",", Collections.nCopies(stateTypes.size(), "?")));
-        try (var pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, jobKey);
-            int i = 2;
-            for (var stateType : stateTypes) {
-                pstmt.setInt(i++, stateType.ordinal());
-            }
-            pstmt.execute();
-        }
-        LOG.info("Delete jobKey: {} stateTypes: {} from database.", jobKey, stateTypes);
-    }
-
-    private void createDataFromDatabase(String jobKey, List<StateType> stateTypes)
-            throws SQLException {
-        var query =
-                "INSERT INTO t_flink_autoscaler_state_store (job_key, state_type_id, state_value) values (?, ?, ?)";
-        try (var pstmt = conn.prepareStatement(query)) {
-            for (var stateType : stateTypes) {
-                pstmt.setString(1, jobKey);
-                pstmt.setInt(2, stateType.ordinal());
-
-                String stateValue = data.get(stateType);
-                checkState(
-                        stateValue != null,
-                        "The state value shouldn't be null during inserting. "
-                                + "It may be a bug, please raise a JIRA to Flink Community.");
-                pstmt.setString(3, stateValue);
-                pstmt.addBatch();
-            }
-            pstmt.executeBatch();
-        }
-        LOG.info("Insert jobKey: {} stateTypes: {} from database.", jobKey, stateTypes);
-    }
-
-    private void updateDataFromDatabase(String jobKey, List<StateType> stateTypes)
-            throws SQLException {
-        var query =
-                "UPDATE t_flink_autoscaler_state_store set state_value = ? where job_key = ? and state_type_id = ?";
-
-        try (var pstmt = conn.prepareStatement(query)) {
-            for (var stateType : stateTypes) {
-                String stateValue = data.get(stateType);
-                checkState(
-                        stateValue != null,
-                        "The state value shouldn't be null during inserting. "
-                                + "It may be a bug, please raise a JIRA to Flink Community.");
-                pstmt.setString(1, stateValue);
-                pstmt.setString(2, jobKey);
-                pstmt.setInt(3, stateType.ordinal());
-                pstmt.addBatch();
-            }
-            pstmt.executeBatch();
-        }
     }
 }

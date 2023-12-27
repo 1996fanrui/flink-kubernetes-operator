@@ -21,13 +21,15 @@ import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQLExtension
 
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.Connection;
+
 /** Test for MySQL 5.7. */
 public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase {
 
     @RegisterExtension
     private static final MySQLExtension mysqlExtension = new MySQLExtension("5.7.41");
 
-    public JDBCStore getJdbcStore() throws Exception {
-        return new JDBCStore(mysqlExtension.getConnection());
+    public Connection getConnection() throws Exception {
+        return mysqlExtension.getConnection();
     }
 }

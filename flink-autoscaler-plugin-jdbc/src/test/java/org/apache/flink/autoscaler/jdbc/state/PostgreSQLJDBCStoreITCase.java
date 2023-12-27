@@ -21,13 +21,15 @@ import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLE
 
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.Connection;
+
 /** Test for PostgreSQL 15.1. */
 public class PostgreSQLJDBCStoreITCase extends AbstractJDBCStoreITCase {
 
     @RegisterExtension
     private static final PostgreSQLExtension postgreSQLExtension = new PostgreSQLExtension("15.1");
 
-    public JDBCStore getJdbcStore() throws Exception {
-        return new JDBCStore(postgreSQLExtension.getConnection());
+    public Connection getConnection() throws Exception {
+        return postgreSQLExtension.getConnection();
     }
 }
