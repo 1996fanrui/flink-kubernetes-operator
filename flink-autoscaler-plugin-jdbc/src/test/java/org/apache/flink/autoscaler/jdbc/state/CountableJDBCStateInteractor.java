@@ -18,8 +18,8 @@
 package org.apache.flink.autoscaler.jdbc.state;
 
 import java.sql.Connection;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +41,7 @@ public class CountableJDBCStateInteractor extends JDBCStateInteractor {
     }
 
     @Override
-    public HashMap<StateType, String> queryData(String jobKey) throws Exception {
+    public Map<StateType, String> queryData(String jobKey) throws Exception {
         queryCounter.incrementAndGet();
         return super.queryData(jobKey);
     }
@@ -54,7 +54,7 @@ public class CountableJDBCStateInteractor extends JDBCStateInteractor {
 
     @Override
     public void createData(
-            String jobKey, List<StateType> createdStateTypes, HashMap<StateType, String> data)
+            String jobKey, List<StateType> createdStateTypes, Map<StateType, String> data)
             throws Exception {
         createCounter.incrementAndGet();
         super.createData(jobKey, createdStateTypes, data);
@@ -62,7 +62,7 @@ public class CountableJDBCStateInteractor extends JDBCStateInteractor {
 
     @Override
     public void updateData(
-            String jobKey, List<StateType> updatedStateTypes, HashMap<StateType, String> data)
+            String jobKey, List<StateType> updatedStateTypes, Map<StateType, String> data)
             throws Exception {
         updateCounter.incrementAndGet();
         super.updateData(jobKey, updatedStateTypes, data);

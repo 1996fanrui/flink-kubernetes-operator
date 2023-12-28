@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static org.apache.flink.autoscaler.jdbc.state.StateType.COLLECTED_METRICS;
 import static org.apache.flink.autoscaler.jdbc.state.StateType.SCALING_HISTORY;
+import static org.apache.flink.autoscaler.jdbc.state.StateType.SCALING_TRACKING;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Test for {@link JobStateView}. */
@@ -39,12 +40,12 @@ class JobStateViewTest implements DerbyTestBase {
     void beforeEach() throws Exception {
         this.jdbcStateInteractor = new CountableJDBCStateInteractor(getConnection());
         this.jobStateView = new JobStateView(jdbcStateInteractor, DEFAULT_JOB_KEY);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
     }
 
     @Test
     void testAllOperations() throws Exception {
         // All state types should be get together to avoid query database frequently.
-        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
         assertThat(jobStateView.get(COLLECTED_METRICS)).isNull();
         jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
         assertThat(jobStateView.get(SCALING_HISTORY)).isNull();
@@ -107,8 +108,6 @@ class JobStateViewTest implements DerbyTestBase {
 
     @Test
     void testAvoidUnnecessaryFlushes() throws Exception {
-        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
-
         var value1 = "value1";
         jobStateView.put(COLLECTED_METRICS, value1);
         jobStateView.flush();
@@ -129,6 +128,52 @@ class JobStateViewTest implements DerbyTestBase {
         jobStateView.clear();
         jobStateView.flush();
         jdbcStateInteractor.assertCountableJDBCInteractor(1, 1, 0, 1);
+    }
+
+    @Test
+    void testCreateDeleteAndUpdateWorkTogether() throws Exception {
+        var value1 = "value1";
+        var value2 = "value2";
+        var value3 = "value3";
+        var value4 = "value4";
+        // Create 2 state types first.
+        jobStateView.put(COLLECTED_METRICS, value1);
+        jobStateView.put(SCALING_HISTORY, value2);
+        jobStateView.flush();
+        assertStateValueForCacheAndDatabase(COLLECTED_METRICS, value1);
+        assertStateValueForCacheAndDatabase(SCALING_HISTORY, value2);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
+
+        // Delete one, update one and create one.
+        jobStateView.remove(COLLECTED_METRICS);
+        jobStateView.put(SCALING_HISTORY, value3);
+        jobStateView.put(SCALING_TRACKING, value4);
+
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isNull();
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).hasValue(value1);
+        assertThat(jobStateView.get(SCALING_HISTORY)).isEqualTo(value3);
+        assertThat(getValueFromDatabase(SCALING_HISTORY)).hasValue(value2);
+        assertThat(jobStateView.get(SCALING_TRACKING)).isEqualTo(value4);
+        assertThat(getValueFromDatabase(SCALING_TRACKING)).isEmpty();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
+
+        // Flush!
+        jobStateView.flush();
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isNull();
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).isEmpty();
+        assertStateValueForCacheAndDatabase(SCALING_HISTORY, value3);
+        assertStateValueForCacheAndDatabase(SCALING_TRACKING, value4);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 1, 1, 2);
+
+        // Build the new JobStateView
+        var newJobStateView = new JobStateView(jdbcStateInteractor, DEFAULT_JOB_KEY);
+        assertThat(newJobStateView.get(COLLECTED_METRICS)).isNull();
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).isEmpty();
+        assertThat(newJobStateView.get(SCALING_HISTORY)).isEqualTo(value3);
+        assertThat(getValueFromDatabase(SCALING_HISTORY)).hasValue(value3);
+        assertThat(newJobStateView.get(SCALING_TRACKING)).isEqualTo(value4);
+        assertThat(getValueFromDatabase(SCALING_TRACKING)).hasValue(value4);
+        jdbcStateInteractor.assertCountableJDBCInteractor(2, 1, 1, 2);
     }
 
     private void assertStateValueForCacheAndDatabase(StateType stateType, String expectedValue)

@@ -41,17 +41,22 @@ public class DerbyExtension implements BeforeAllCallback, AfterAllCallback, Afte
     public void beforeAll(ExtensionContext extensionContext) throws Exception {
         DriverManager.getConnection(String.format("%s;create=true", JDBC_URL)).close();
 
-        var stateDDL =
-                "create table t_flink_autoscaler_state_store\n"
+        var stateStoreDDL =
+                "CREATE TABLE t_flink_autoscaler_state_store\n"
                         + "(\n"
-                        + "    id            bigint,\n"
-                        + "    job_key       varchar(191) not null ,\n"
-                        + "    state_type_id int      not null ,\n"
-                        + "    state_value   varchar(1000)     not null \n"
-                        + ")";
+                        + "    id            BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),\n"
+                        + "    update_time   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,\n"
+                        + "    job_key       VARCHAR(191) NOT NULL,\n"
+                        + "    state_type_id SMALLINT NOT NULL,\n"
+                        + "    state_value   CLOB NOT NULL,\n"
+                        + "    PRIMARY KEY (id)\n"
+                        + ")\n";
 
+        var createIndex =
+                "CREATE UNIQUE INDEX un_job_state_type_inx ON t_flink_autoscaler_state_store (job_key, state_type_id)";
         try (var statement = getConnection().createStatement()) {
-            statement.execute(stateDDL);
+            statement.execute(stateStoreDDL);
+            statement.execute(createIndex);
         }
     }
 

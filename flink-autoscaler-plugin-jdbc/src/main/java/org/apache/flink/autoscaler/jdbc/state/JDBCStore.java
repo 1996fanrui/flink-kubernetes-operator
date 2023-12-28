@@ -17,12 +17,9 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
-import org.apache.flink.annotation.VisibleForTesting;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,12 +32,8 @@ public class JDBCStore {
 
     private final JDBCStateInteractor jdbcStateInteractor;
 
-    public JDBCStore(JDBCStateInteractor jdbcStateInteractor) throws SQLException {
+    public JDBCStore(JDBCStateInteractor jdbcStateInteractor) {
         this.jdbcStateInteractor = jdbcStateInteractor;
-
-        //        String url1 = "jdbc:mysql://localhost:3306/mydatabase";
-        // TODO
-        //        conn.setAutoCommit(false);
     }
 
     protected void putSerializedState(String jobKey, StateType stateType, String value) {
@@ -80,15 +73,13 @@ public class JDBCStore {
         getJobStateView(jobKey).clear();
     }
 
-    @VisibleForTesting
-    JobStateView getJobStateView(String jobKey) {
+    private JobStateView getJobStateView(String jobKey) {
         return cache.computeIfAbsent(
                 jobKey,
                 (id) -> {
                     try {
                         return createJobStateView(jobKey);
                     } catch (Exception exception) {
-                        // TODO test it.
                         throw new RuntimeException(
                                 "Meet exception during create job state view.", exception);
                     }

@@ -24,6 +24,7 @@ import java.sql.Connection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -38,7 +39,7 @@ public class JDBCStateInteractor {
         this.conn = conn;
     }
 
-    public HashMap<StateType, String> queryData(String jobKey) throws Exception {
+    public Map<StateType, String> queryData(String jobKey) throws Exception {
         var query =
                 "select state_type_id, state_value from t_flink_autoscaler_state_store where job_key = ?";
         var data = new HashMap<StateType, String>();
@@ -72,7 +73,7 @@ public class JDBCStateInteractor {
     }
 
     public void createData(
-            String jobKey, List<StateType> createdStateTypes, HashMap<StateType, String> data)
+            String jobKey, List<StateType> createdStateTypes, Map<StateType, String> data)
             throws Exception {
         var query =
                 "INSERT INTO t_flink_autoscaler_state_store (job_key, state_type_id, state_value) values (?, ?, ?)";
@@ -95,7 +96,7 @@ public class JDBCStateInteractor {
     }
 
     public void updateData(
-            String jobKey, List<StateType> updatedStateTypes, HashMap<StateType, String> data)
+            String jobKey, List<StateType> updatedStateTypes, Map<StateType, String> data)
             throws Exception {
         var query =
                 "UPDATE t_flink_autoscaler_state_store set state_value = ? where job_key = ? and state_type_id = ?";

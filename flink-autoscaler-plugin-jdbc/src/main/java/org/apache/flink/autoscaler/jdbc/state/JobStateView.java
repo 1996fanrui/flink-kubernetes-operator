@@ -139,14 +139,14 @@ public class JobStateView {
 
     private final JDBCStateInteractor jdbcStateInteractor;
     private final String jobKey;
-    private final HashMap<StateType, String> data;
+    private final Map<StateType, String> data;
 
     /**
      * The state is maintained for each state type, which means that part of state types of current
      * job are stored in the database, but the rest of the state types may have been created in the
      * database.
      */
-    private final HashMap<StateType, State> states;
+    private final Map<StateType, State> states;
 
     public JobStateView(JDBCStateInteractor jdbcStateInteractor, String jobKey) throws Exception {
         this.jdbcStateInteractor = jdbcStateInteractor;
@@ -155,7 +155,7 @@ public class JobStateView {
         this.states = generateStates(this.data);
     }
 
-    private HashMap<StateType, State> generateStates(HashMap<StateType, String> data) {
+    private Map<StateType, State> generateStates(Map<StateType, String> data) {
         final var states = new HashMap<StateType, State>();
         for (StateType stateType : StateType.values()) {
             if (data.containsKey(stateType)) {
