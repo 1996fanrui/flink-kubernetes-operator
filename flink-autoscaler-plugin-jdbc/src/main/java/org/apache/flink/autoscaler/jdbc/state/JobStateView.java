@@ -46,6 +46,7 @@ public class JobStateView {
      * <p>Note: {@link #inLocally} and {@link #inDatabase} are only for understand, we don't use
      * them.
      */
+    @SuppressWarnings("unused")
     enum State {
 
         /** State doesn't exist at database, and it's not used so far, so it's not needed. */
@@ -175,7 +176,7 @@ public class JobStateView {
         updateState(stateType, STATE_TRANSITIONER::putTransition);
     }
 
-    public void removeKey(StateType stateType) {
+    public void remove(StateType stateType) {
         var oldKey = data.remove(stateType);
         if (oldKey == null) {
             return;

@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 /** Countable {@link JDBCStateInteractor}. */
 public class CountableJDBCStateInteractor extends JDBCStateInteractor {
 
@@ -66,19 +68,14 @@ public class CountableJDBCStateInteractor extends JDBCStateInteractor {
         super.updateData(jobKey, updatedStateTypes, data);
     }
 
-    public long getQueryCounter() {
-        return queryCounter.get();
-    }
-
-    public long getDeleteCounter() {
-        return deleteCounter.get();
-    }
-
-    public long getCreateCounter() {
-        return createCounter.get();
-    }
-
-    public long getUpdateCounter() {
-        return updateCounter.get();
+    public void assertCountableJDBCInteractor(
+            long expectedQueryCounter,
+            long expectedDeleteCounter,
+            long expectedUpdateCounter,
+            long expectedCreateCounter) {
+        assertThat(queryCounter).hasValue(expectedQueryCounter);
+        assertThat(deleteCounter).hasValue(expectedDeleteCounter);
+        assertThat(updateCounter).hasValue(expectedUpdateCounter);
+        assertThat(createCounter).hasValue(expectedCreateCounter);
     }
 }

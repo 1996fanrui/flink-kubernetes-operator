@@ -56,7 +56,7 @@ public class DerbyExtension implements BeforeAllCallback, AfterAllCallback, Afte
     }
 
     @Override
-    public void afterAll(ExtensionContext extensionContext) throws Exception {
+    public void afterAll(ExtensionContext extensionContext) {
         try {
             DriverManager.getConnection(String.format("%s;shutdown=true", JDBC_URL)).close();
         } catch (SQLException ignored) {
@@ -66,6 +66,7 @@ public class DerbyExtension implements BeforeAllCallback, AfterAllCallback, Afte
     @Override
     public void afterEach(ExtensionContext extensionContext) throws Exception {
         Connection conn = getConnection();
+        // Clean up all data
         for (var tableName : TABLES) {
             try (var st = conn.createStatement()) {
                 st.executeUpdate(String.format("DELETE from %s", tableName));

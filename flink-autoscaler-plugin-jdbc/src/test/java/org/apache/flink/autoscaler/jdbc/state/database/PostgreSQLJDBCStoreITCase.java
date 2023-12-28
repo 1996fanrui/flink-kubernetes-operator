@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc.state;
+package org.apache.flink.autoscaler.jdbc.state.database;
 
+import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStoreITCase;
 import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLTestBase;
 
 /** Test for PostgreSQL 15.1. */

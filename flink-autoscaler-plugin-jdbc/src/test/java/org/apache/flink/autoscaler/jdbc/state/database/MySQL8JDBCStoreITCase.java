@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc.state;
+package org.apache.flink.autoscaler.jdbc.state.database;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.derby.DerbyTestBase;
+import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStoreITCase;
+import org.apache.flink.autoscaler.jdbc.state.JDBCStore;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL8TestBase;
 
-/** Test {@link JDBCStore} via Derby database. */
-public class DerbyJDBCStoreITCase extends AbstractJDBCStoreITCase implements DerbyTestBase {}
+/** Test {@link JDBCStore} via MySQL 8. */
+public class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL8TestBase {}

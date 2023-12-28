@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc.state;
+package org.apache.flink.autoscaler.jdbc.state.database;
 
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL56TestBase;
+import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStoreITCase;
+import org.apache.flink.autoscaler.jdbc.state.JDBCStore;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
 
-/** Test {@link JDBCStore} via MySQL 5.6. */
-public class MySQL56JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL56TestBase {}
+/** Test {@link JDBCStore} via MySQL 5.7. */
+public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}

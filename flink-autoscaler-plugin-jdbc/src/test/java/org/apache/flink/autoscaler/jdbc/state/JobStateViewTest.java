@@ -17,11 +17,128 @@
 
 package org.apache.flink.autoscaler.jdbc.state;
 
+import org.apache.flink.autoscaler.jdbc.testutils.databases.derby.DerbyTestBase;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+import static org.apache.flink.autoscaler.jdbc.state.StateType.COLLECTED_METRICS;
+import static org.apache.flink.autoscaler.jdbc.state.StateType.SCALING_HISTORY;
+import static org.assertj.core.api.Assertions.assertThat;
+
 /** Test for {@link JobStateView}. */
-class JobStateViewTest {
+class JobStateViewTest implements DerbyTestBase {
+
+    private static final String DEFAULT_JOB_KEY = "jobKey";
+    private CountableJDBCStateInteractor jdbcStateInteractor;
+    private JobStateView jobStateView;
+
+    @BeforeEach
+    void beforeEach() throws Exception {
+        this.jdbcStateInteractor = new CountableJDBCStateInteractor(getConnection());
+        this.jobStateView = new JobStateView(jdbcStateInteractor, DEFAULT_JOB_KEY);
+    }
 
     @Test
-    void test() {}
+    void testAllOperations() throws Exception {
+        // All state types should be get together to avoid query database frequently.
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isNull();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
+        assertThat(jobStateView.get(SCALING_HISTORY)).isNull();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
+
+        // Put data to cache, and it shouldn't exist in database.
+        var value1 = "value1";
+        jobStateView.put(COLLECTED_METRICS, value1);
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isEqualTo(value1);
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).isEmpty();
+
+        var value2 = "value2";
+        jobStateView.put(SCALING_HISTORY, value2);
+        assertThat(jobStateView.get(SCALING_HISTORY)).isEqualTo(value2);
+        assertThat(getValueFromDatabase(SCALING_HISTORY)).isEmpty();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
+
+        // Test creating together.
+        jobStateView.flush();
+        assertStateValueForCacheAndDatabase(COLLECTED_METRICS, value1);
+        assertStateValueForCacheAndDatabase(SCALING_HISTORY, value2);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
+
+        // Test updating data to cache, and they aren't updated in database.
+        var value3 = "value3";
+        jobStateView.put(COLLECTED_METRICS, value3);
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isEqualTo(value3);
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).hasValue(value1);
+
+        var value4 = "value4";
+        jobStateView.put(SCALING_HISTORY, value4);
+        assertThat(jobStateView.get(SCALING_HISTORY)).isEqualTo(value4);
+        assertThat(getValueFromDatabase(SCALING_HISTORY)).hasValue(value2);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
+
+        // Test updating together.
+        jobStateView.flush();
+        assertStateValueForCacheAndDatabase(COLLECTED_METRICS, value3);
+        assertStateValueForCacheAndDatabase(SCALING_HISTORY, value4);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 1, 1);
+
+        // Test deleting data from cache, and they aren't deleted in database.
+        jobStateView.remove(COLLECTED_METRICS);
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isNull();
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).hasValue(value3);
+
+        jobStateView.remove(SCALING_HISTORY);
+        assertThat(jobStateView.get(SCALING_HISTORY)).isNull();
+        assertThat(getValueFromDatabase(SCALING_HISTORY)).hasValue(value4);
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 1, 1);
+
+        // Test updating together.
+        jobStateView.flush();
+        assertThat(jobStateView.get(COLLECTED_METRICS)).isNull();
+        assertThat(getValueFromDatabase(COLLECTED_METRICS)).isEmpty();
+        assertThat(jobStateView.get(SCALING_HISTORY)).isNull();
+        assertThat(getValueFromDatabase(SCALING_HISTORY)).isEmpty();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 1, 1, 1);
+    }
+
+    @Test
+    void testAvoidUnnecessaryFlushes() throws Exception {
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
+
+        var value1 = "value1";
+        jobStateView.put(COLLECTED_METRICS, value1);
+        jobStateView.flush();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
+
+        // Avoid unnecessary flush for creating.
+        jobStateView.flush();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
+
+        // Avoid unnecessary flush for deleting.
+        jobStateView.clear();
+        jobStateView.flush();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 1, 0, 1);
+        jobStateView.flush();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 1, 0, 1);
+
+        // Avoid unnecessary flush even if clear is called..
+        jobStateView.clear();
+        jobStateView.flush();
+        jdbcStateInteractor.assertCountableJDBCInteractor(1, 1, 0, 1);
+    }
+
+    private void assertStateValueForCacheAndDatabase(StateType stateType, String expectedValue)
+            throws Exception {
+        assertThat(jobStateView.get(stateType)).isEqualTo(expectedValue);
+        assertThat(getValueFromDatabase(stateType)).hasValue(expectedValue);
+    }
+
+    private Optional<String> getValueFromDatabase(StateType stateType) throws Exception {
+        var jdbcInteractor = new JDBCStateInteractor(getConnection());
+        return Optional.ofNullable(jdbcInteractor.queryData(DEFAULT_JOB_KEY).get(stateType));
+    }
 }

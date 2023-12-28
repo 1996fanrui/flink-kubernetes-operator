@@ -52,7 +52,7 @@ public class JDBCStore {
     }
 
     protected void removeSerializedState(String jobKey, StateType stateType) {
-        getJobStateView(jobKey).removeKey(stateType);
+        getJobStateView(jobKey).remove(stateType);
     }
 
     public void flush(String jobKey) throws Exception {

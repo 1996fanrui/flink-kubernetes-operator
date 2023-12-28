@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.autoscaler.jdbc.state;
+package org.apache.flink.autoscaler.jdbc;
 
 import org.apache.flink.annotation.Experimental;
 

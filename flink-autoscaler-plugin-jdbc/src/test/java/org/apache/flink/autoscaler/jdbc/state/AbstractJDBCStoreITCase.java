@@ -27,7 +27,9 @@ import static org.apache.flink.autoscaler.jdbc.state.StateType.COLLECTED_METRICS
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The abstract IT case for {@link JDBCStore}. */
-abstract class AbstractJDBCStoreITCase implements DatabaseTest {
+public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
+
+    private static final String DEFAULT_JOB_KEY = "jobKey";
 
     @Test
     void testCreateAndGet() throws Exception {
@@ -36,33 +38,33 @@ abstract class AbstractJDBCStoreITCase implements DatabaseTest {
         var jobKey = "aaa";
         var expectedValue1 = "value1";
 
-        assertCountableJDBCInteractor(countableJDBCInteractor, 0, 0, 0, 0);
+        countableJDBCInteractor.assertCountableJDBCInteractor(0, 0, 0, 0);
         assertThat(jdbcStore.getSerializedState(jobKey, COLLECTED_METRICS)).isEmpty();
-        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 0);
+        countableJDBCInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
 
         // Get from cache, and it shouldn't exist in database.
         jdbcStore.putSerializedState(jobKey, COLLECTED_METRICS, expectedValue1);
         assertThat(jdbcStore.getSerializedState(jobKey, COLLECTED_METRICS))
                 .hasValue(expectedValue1);
         assertThat(getValueFromDatabase(jobKey, COLLECTED_METRICS)).isEmpty();
-        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 0);
+        countableJDBCInteractor.assertCountableJDBCInteractor(1, 0, 0, 0);
 
         // Get from cache after flushing, and it should exist in database.
         jdbcStore.flush(jobKey);
         assertStateValueForCacheAndDatabase(jdbcStore, jobKey, COLLECTED_METRICS, expectedValue1);
-        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 1);
+        countableJDBCInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
 
         // Get from database for a old JDBC Store.
         jdbcStore.removeInfoFromCache(jobKey);
-        assertCountableJDBCInteractor(countableJDBCInteractor, 1, 0, 0, 1);
+        countableJDBCInteractor.assertCountableJDBCInteractor(1, 0, 0, 1);
         assertStateValueForCacheAndDatabase(jdbcStore, jobKey, COLLECTED_METRICS, expectedValue1);
-        assertCountableJDBCInteractor(countableJDBCInteractor, 2, 0, 0, 1);
+        countableJDBCInteractor.assertCountableJDBCInteractor(2, 0, 0, 1);
 
         // Get from database for a new JDBC Store.
         var newJdbcStore = new JDBCStore(countableJDBCInteractor);
         assertStateValueForCacheAndDatabase(
                 newJdbcStore, jobKey, COLLECTED_METRICS, expectedValue1);
-        assertCountableJDBCInteractor(countableJDBCInteractor, 3, 0, 0, 1);
+        countableJDBCInteractor.assertCountableJDBCInteractor(3, 0, 0, 1);
     }
 
     @Test
@@ -90,18 +92,6 @@ abstract class AbstractJDBCStoreITCase implements DatabaseTest {
         var jobKey = "aaa";
         var expectedValue1 = "value1";
         // TODO
-    }
-
-    private void assertCountableJDBCInteractor(
-            CountableJDBCStateInteractor jdbcInteractor,
-            long expectedQueryCounter,
-            long expectedDeleteCounter,
-            long expectedUpdateCounter,
-            long expectedCreateCounter) {
-        assertThat(jdbcInteractor.getQueryCounter()).isEqualTo(expectedQueryCounter);
-        assertThat(jdbcInteractor.getDeleteCounter()).isEqualTo(expectedDeleteCounter);
-        assertThat(jdbcInteractor.getUpdateCounter()).isEqualTo(expectedUpdateCounter);
-        assertThat(jdbcInteractor.getCreateCounter()).isEqualTo(expectedCreateCounter);
     }
 
     private void assertStateValueForCacheAndDatabase(
