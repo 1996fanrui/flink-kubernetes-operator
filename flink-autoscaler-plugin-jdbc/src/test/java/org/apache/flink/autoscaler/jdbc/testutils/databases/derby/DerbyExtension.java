@@ -54,17 +54,18 @@ public class DerbyExtension implements BeforeAllCallback, AfterAllCallback, Afte
 
         var createIndex =
                 "CREATE UNIQUE INDEX un_job_state_type_inx ON t_flink_autoscaler_state_store (job_key, state_type_id)";
-        try (var statement = getConnection().createStatement()) {
-            statement.execute(stateStoreDDL);
-            statement.execute(createIndex);
+        try (var conn = getConnection();
+                var st = conn.createStatement()) {
+            st.execute(stateStoreDDL);
+            st.execute(createIndex);
         }
     }
 
     @Override
     public void afterAll(ExtensionContext extensionContext) throws Exception {
-        Connection connection = getConnection();
-        for (var tableName : TABLES) {
-            try (var st = connection.createStatement()) {
+        try (var conn = getConnection();
+                var st = conn.createStatement()) {
+            for (var tableName : TABLES) {
                 st.executeUpdate(String.format("DROP TABLE %s", tableName));
             }
         }
@@ -76,10 +77,10 @@ public class DerbyExtension implements BeforeAllCallback, AfterAllCallback, Afte
 
     @Override
     public void afterEach(ExtensionContext extensionContext) throws Exception {
-        Connection conn = getConnection();
         // Clean up all data
-        for (var tableName : TABLES) {
-            try (var st = conn.createStatement()) {
+        try (var conn = getConnection();
+                var st = conn.createStatement()) {
+            for (var tableName : TABLES) {
                 st.executeUpdate(String.format("DELETE from %s", tableName));
             }
         }

@@ -65,9 +65,9 @@ public class PostgreSQLExtension implements BeforeAllCallback, AfterAllCallback,
 
     @Override
     public void afterEach(ExtensionContext extensionContext) throws Exception {
-        Connection conn = getConnection();
-        for (var tableName : TABLES) {
-            try (var st = conn.createStatement()) {
+        try (var conn = getConnection();
+                var st = conn.createStatement()) {
+            for (var tableName : TABLES) {
                 st.executeUpdate(String.format("DELETE from %s", tableName));
             }
         }

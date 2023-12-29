@@ -19,9 +19,11 @@ package org.apache.flink.autoscaler.jdbc.state;
 
 import org.apache.flink.autoscaler.jdbc.testutils.databases.DatabaseTest;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -38,13 +40,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
 
     private static final String DEFAULT_JOB_KEY = "jobKey";
+    private Connection conn;
     private CountableJDBCStateInteractor jdbcStateInteractor;
     private JDBCStore jdbcStore;
 
     @BeforeEach
     void beforeEach() throws Exception {
-        this.jdbcStateInteractor = new CountableJDBCStateInteractor(getConnection());
+        this.conn = getConnection();
+        this.jdbcStateInteractor = new CountableJDBCStateInteractor(conn);
         this.jdbcStore = new JDBCStore(jdbcStateInteractor);
+    }
+
+    @AfterEach
+    void afterEach() throws SQLException {
+        if (conn != null) {
+            conn.close();
+        }
     }
 
     @Test
@@ -162,7 +173,7 @@ public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
         assertThat(jdbcStore.getSerializedState(DEFAULT_JOB_KEY, COLLECTED_METRICS)).isEmpty();
 
         // Modify the database directly.
-        var tmpJdbcInteractor = new JDBCStateInteractor(getConnection());
+        var tmpJdbcInteractor = new JDBCStateInteractor(conn);
         tmpJdbcInteractor.createData(
                 DEFAULT_JOB_KEY, List.of(COLLECTED_METRICS), Map.of(COLLECTED_METRICS, value1));
         assertThat(getValueFromDatabase(DEFAULT_JOB_KEY, COLLECTED_METRICS)).hasValue(value1);
@@ -189,7 +200,7 @@ public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
         final var expectedException = new RuntimeException("Database isn't stable.");
 
         var exceptionableJdbcStateInteractor =
-                new CountableJDBCStateInteractor(getConnection()) {
+                new CountableJDBCStateInteractor(conn) {
                     private final AtomicBoolean isFirst = new AtomicBoolean(true);
 
                     @Override
@@ -266,7 +277,7 @@ public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
 
     private Optional<String> getValueFromDatabase(String jobKey, StateType stateType)
             throws Exception {
-        var jdbcInteractor = new JDBCStateInteractor(getConnection());
+        var jdbcInteractor = new JDBCStateInteractor(conn);
         return Optional.ofNullable(jdbcInteractor.queryData(jobKey).get(stateType));
     }
 }
