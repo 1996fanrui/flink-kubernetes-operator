@@ -21,5 +21,5 @@ import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStoreITCase;
 import org.apache.flink.autoscaler.jdbc.state.JDBCStore;
 import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL56TestBase;
 
-/** Test {@link JDBCStore} via MySQL 5.6. */
+/** Test {@link JDBCStore} via MySQL 5.6.x. */
 public class MySQL56JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL56TestBase {}

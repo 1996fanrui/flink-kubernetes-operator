@@ -18,8 +18,9 @@
 package org.apache.flink.autoscaler.jdbc.state.database;
 
 import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStoreITCase;
+import org.apache.flink.autoscaler.jdbc.state.JDBCStore;
 import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLTestBase;
 
-/** Test for PostgreSQL 15.1. */
+/** Test {@link JDBCStore} via Postgre SQL. */
 public class PostgreSQLJDBCStoreITCase extends AbstractJDBCStoreITCase
         implements PostgreSQLTestBase {}

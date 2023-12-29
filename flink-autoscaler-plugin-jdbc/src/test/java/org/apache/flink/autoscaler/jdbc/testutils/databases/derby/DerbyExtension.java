@@ -61,7 +61,13 @@ public class DerbyExtension implements BeforeAllCallback, AfterAllCallback, Afte
     }
 
     @Override
-    public void afterAll(ExtensionContext extensionContext) {
+    public void afterAll(ExtensionContext extensionContext) throws Exception {
+        Connection connection = getConnection();
+        for (var tableName : TABLES) {
+            try (var st = connection.createStatement()) {
+                st.executeUpdate(String.format("DROP TABLE %s", tableName));
+            }
+        }
         try {
             DriverManager.getConnection(String.format("%s;shutdown=true", JDBC_URL)).close();
         } catch (SQLException ignored) {

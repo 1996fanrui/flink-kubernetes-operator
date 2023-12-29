@@ -17,9 +17,10 @@
 
 package org.apache.flink.autoscaler.jdbc.state.database;
 
-import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStoreITCase;
-import org.apache.flink.autoscaler.jdbc.state.JDBCStore;
-import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.apache.flink.autoscaler.jdbc.state.AbstractJDBCStateInteractorITCase;
+import org.apache.flink.autoscaler.jdbc.state.JDBCStateInteractor;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL8TestBase;
 
-/** Test {@link JDBCStore} via MySQL 5.7.x. */
-public class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}
+/** Test {@link JDBCStateInteractor} via MySQL 8.x. */
+public class MySQL8JDBCStateInteractorITCase extends AbstractJDBCStateInteractorITCase
+        implements MySQL8TestBase {}
