@@ -18,6 +18,11 @@
 package org.apache.flink.autoscaler.jdbc.state;
 
 import org.apache.flink.autoscaler.jdbc.testutils.databases.DatabaseTest;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.derby.DerbyTestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL56TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL8TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLTestBase;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** The abstract IT case for {@link JDBCStore}. */
-public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
+abstract class AbstractJDBCStoreITCase implements DatabaseTest {
 
     private static final String DEFAULT_JOB_KEY = "jobKey";
     private Connection conn;
@@ -281,3 +286,18 @@ public abstract class AbstractJDBCStoreITCase implements DatabaseTest {
         return Optional.ofNullable(jdbcInteractor.queryData(jobKey).get(stateType));
     }
 }
+
+/** Test {@link JDBCStore} via Derby database. */
+class DerbyJDBCStoreITCase extends AbstractJDBCStoreITCase implements DerbyTestBase {}
+
+/** Test {@link JDBCStore} via MySQL 5.6.x. */
+class MySQL56JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL56TestBase {}
+
+/** Test {@link JDBCStore} via MySQL 5.7.x. */
+class MySQL57JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL57TestBase {}
+
+/** Test {@link JDBCStore} via MySQL 8. */
+class MySQL8JDBCStoreITCase extends AbstractJDBCStoreITCase implements MySQL8TestBase {}
+
+/** Test {@link JDBCStore} via Postgre SQL. */
+class PostgreSQLJDBCStoreITCase extends AbstractJDBCStoreITCase implements PostgreSQLTestBase {}

@@ -18,6 +18,11 @@
 package org.apache.flink.autoscaler.jdbc.state;
 
 import org.apache.flink.autoscaler.jdbc.testutils.databases.DatabaseTest;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.derby.DerbyTestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL56TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL57TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.mysql.MySQL8TestBase;
+import org.apache.flink.autoscaler.jdbc.testutils.databases.postgres.PostgreSQLTestBase;
 
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +34,7 @@ import static org.apache.flink.autoscaler.jdbc.state.StateType.SCALING_HISTORY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The abstract IT case for {@link JDBCStateInteractor}. */
-public abstract class AbstractJDBCStateInteractorITCase implements DatabaseTest {
+abstract class AbstractJDBCStateInteractorITCase implements DatabaseTest {
 
     @Test
     void testAllOperations() throws Exception {
@@ -66,3 +71,23 @@ public abstract class AbstractJDBCStateInteractorITCase implements DatabaseTest 
         }
     }
 }
+
+/** Test {@link JDBCStateInteractor} via Derby database. */
+class DerbyJDBCStateInteractorITCase extends AbstractJDBCStateInteractorITCase
+        implements DerbyTestBase {}
+
+/** Test {@link JDBCStateInteractor} via MySQL 5.6.x. */
+class MySQL56JDBCStateInteractorITCase extends AbstractJDBCStateInteractorITCase
+        implements MySQL56TestBase {}
+
+/** Test {@link JDBCStateInteractor} via MySQL 5.7.x. */
+class MySQL57JDBCStateInteractorITCase extends AbstractJDBCStateInteractorITCase
+        implements MySQL57TestBase {}
+
+/** Test {@link JDBCStateInteractor} via MySQL 8.x. */
+class MySQL8JDBCStateInteractorITCase extends AbstractJDBCStateInteractorITCase
+        implements MySQL8TestBase {}
+
+/** Test {@link JDBCStateInteractor} via Postgre SQL. */
+class PostgreSQLJDBCStateInteractorITCase extends AbstractJDBCStateInteractorITCase
+        implements PostgreSQLTestBase {}

@@ -28,7 +28,7 @@ import java.sql.DriverManager;
 import java.util.List;
 
 /** The extension of MySQL. */
-public class MySQLExtension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
+class MySQLExtension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
 
     private static final String MYSQL_INIT_SCRIPT = "schema/mysql/mysql_schema.sql";
     private static final String DATABASE_NAME = "flink_autoscaler";

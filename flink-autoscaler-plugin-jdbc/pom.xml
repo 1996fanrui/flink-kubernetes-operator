@@ -33,8 +33,9 @@ under the License.
 
     <properties>
         <testcontainers.version>1.18.2</testcontainers.version>
-        <postgres.version>42.5.1</postgres.version>
-        <mysql.version>8.0.29</mysql.version>
+        <derby.version>10.15.2.0</derby.version>
+        <postgres.version>42.5.4</postgres.version>
+        <mysql.version>8.0.33</mysql.version>
     </properties>
 
     <dependencyManagement>
@@ -92,7 +93,7 @@ under the License.
         <dependency>
             <groupId>org.apache.derby</groupId>
             <artifactId>derby</artifactId>
-            <version>10.14.2.0</version>
+            <version>${derby.version}</version>
             <scope>test</scope>
         </dependency>
 

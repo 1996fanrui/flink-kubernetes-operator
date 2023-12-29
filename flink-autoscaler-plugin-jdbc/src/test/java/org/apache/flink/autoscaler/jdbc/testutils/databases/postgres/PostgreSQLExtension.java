@@ -28,7 +28,7 @@ import java.sql.DriverManager;
 import java.util.List;
 
 /** The extension of PostgreSQL. */
-public class PostgreSQLExtension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
+class PostgreSQLExtension implements BeforeAllCallback, AfterAllCallback, AfterEachCallback {
 
     private static final String INIT_SCRIPT = "schema/postgres/postgres_schema.sql";
     private static final String DATABASE_NAME = "flink_autoscaler";
