@@ -30,7 +30,6 @@ import org.apache.flink.autoscaler.event.LoggingEventHandler;
 import org.apache.flink.autoscaler.standalone.flinkcluster.FlinkClusterJobListFetcher;
 import org.apache.flink.autoscaler.standalone.realizer.RescaleApiScalingRealizer;
 import org.apache.flink.autoscaler.state.AutoScalerStateStore;
-import org.apache.flink.autoscaler.state.InMemoryAutoScalerStateStore;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneClientHAServices;
 import org.apache.flink.util.TimeUtils;
@@ -63,7 +62,8 @@ public class StandaloneAutoscalerEntrypoint {
     public static final String FLINK_CLUSTER_PORT = "flinkClusterPort";
     private static final int DEFAULT_FLINK_CLUSTER_PORT = 8081;
 
-    public static <KEY, Context extends JobAutoScalerContext<KEY>> void main(String[] args) {
+    public static <KEY, Context extends JobAutoScalerContext<KEY>> void main(String[] args)
+            throws Exception {
         var parameters = ParameterTool.fromArgs(args);
         LOG.info("The standalone autoscaler is started, parameters: {}", parameters.toMap());
 
@@ -79,10 +79,12 @@ public class StandaloneAutoscalerEntrypoint {
 
         // Initialize JobListFetcher and JobAutoScaler.
         var eventHandler = new LoggingEventHandler<KEY, Context>();
+        AutoScalerStateStore<KEY, Context> stateStore =
+                AutoscalerStateStoreFactory.create(parameters);
+        var autoScaler = createJobAutoscaler(eventHandler, stateStore);
+
         JobListFetcher<KEY, Context> jobListFetcher =
                 createJobListFetcher(parameters, restClientTimeout);
-        var autoScaler = createJobAutoscaler(eventHandler);
-
         var autoscalerExecutor =
                 new StandaloneAutoscalerExecutor<>(
                         scalingInterval, jobListFetcher, eventHandler, autoScaler);
@@ -109,8 +111,8 @@ public class StandaloneAutoscalerEntrypoint {
 
     private static <KEY, Context extends JobAutoScalerContext<KEY>>
             JobAutoScaler<KEY, Context> createJobAutoscaler(
-                    AutoScalerEventHandler<KEY, Context> eventHandler) {
-        AutoScalerStateStore<KEY, Context> stateStore = new InMemoryAutoScalerStateStore<>();
+                    AutoScalerEventHandler<KEY, Context> eventHandler,
+                    AutoScalerStateStore<KEY, Context> stateStore) {
         return new JobAutoScalerImpl<>(
                 new RestApiMetricsCollector<>(),
                 new ScalingMetricEvaluator(),
