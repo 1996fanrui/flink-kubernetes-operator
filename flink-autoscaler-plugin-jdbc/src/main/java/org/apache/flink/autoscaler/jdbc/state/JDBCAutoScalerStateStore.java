@@ -22,7 +22,6 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.ScalingSummary;
 import org.apache.flink.autoscaler.ScalingTracking;
-import org.apache.flink.autoscaler.jdbc.JobKeySerializer;
 import org.apache.flink.autoscaler.metrics.CollectedMetrics;
 import org.apache.flink.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.autoscaler.utils.AutoScalerSerDeModule;
@@ -43,7 +42,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
+import java.sql.Connection;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
@@ -61,12 +60,11 @@ import static org.apache.flink.autoscaler.jdbc.state.StateType.SCALING_TRACKING;
 
 /** An AutoscalerStateStore which persists its state in JDBC related database. */
 @Experimental
-public class JDBCAutoScalerStateStore<KEY>
-        implements AutoScalerStateStore<KEY, JobAutoScalerContext<KEY>> {
+public class JDBCAutoScalerStateStore<KEY, Context extends JobAutoScalerContext<KEY>>
+        implements AutoScalerStateStore<KEY, Context> {
 
     private static final Logger LOG = LoggerFactory.getLogger(JDBCAutoScalerStateStore.class);
 
-    private final JobKeySerializer<KEY> jobKeySerializer;
     private final JDBCStore jdbcStore;
 
     protected static final ObjectMapper YAML_MAPPER =
@@ -74,15 +72,13 @@ public class JDBCAutoScalerStateStore<KEY>
                     .registerModule(new JavaTimeModule())
                     .registerModule(new AutoScalerSerDeModule());
 
-    public JDBCAutoScalerStateStore(JobKeySerializer<KEY> jobKeySerializer) throws SQLException {
-        this.jobKeySerializer = jobKeySerializer;
-        this.jdbcStore = new JDBCStore(null);
+    public JDBCAutoScalerStateStore(Connection conn) {
+        this.jdbcStore = new JDBCStore(new JDBCStateInteractor(conn));
     }
 
     @Override
     public void storeScalingHistory(
-            JobAutoScalerContext<KEY> jobContext,
-            Map<JobVertexID, SortedMap<Instant, ScalingSummary>> scalingHistory)
+            Context jobContext, Map<JobVertexID, SortedMap<Instant, ScalingSummary>> scalingHistory)
             throws Exception {
         jdbcStore.putSerializedState(
                 getSerializeKey(jobContext),
@@ -93,7 +89,7 @@ public class JDBCAutoScalerStateStore<KEY>
     @Nonnull
     @Override
     public Map<JobVertexID, SortedMap<Instant, ScalingSummary>> getScalingHistory(
-            JobAutoScalerContext<KEY> jobContext) {
+            Context jobContext) {
         Optional<String> serializedScalingHistory =
                 jdbcStore.getSerializedState(getSerializeKey(jobContext), SCALING_HISTORY);
         if (serializedScalingHistory.isEmpty()) {
@@ -111,13 +107,13 @@ public class JDBCAutoScalerStateStore<KEY>
     }
 
     @Override
-    public void removeScalingHistory(JobAutoScalerContext<KEY> jobContext) {
+    public void removeScalingHistory(Context jobContext) {
         jdbcStore.removeSerializedState(getSerializeKey(jobContext), SCALING_HISTORY);
     }
 
     @Override
-    public void storeScalingTracking(
-            JobAutoScalerContext<KEY> jobContext, ScalingTracking scalingTrack) throws Exception {
+    public void storeScalingTracking(Context jobContext, ScalingTracking scalingTrack)
+            throws Exception {
         jdbcStore.putSerializedState(
                 getSerializeKey(jobContext),
                 SCALING_TRACKING,
@@ -125,7 +121,7 @@ public class JDBCAutoScalerStateStore<KEY>
     }
 
     @Override
-    public ScalingTracking getScalingTracking(JobAutoScalerContext<KEY> jobContext) {
+    public ScalingTracking getScalingTracking(Context jobContext) {
         Optional<String> serializedRescalingHistory =
                 jdbcStore.getSerializedState(getSerializeKey(jobContext), SCALING_TRACKING);
         if (serializedRescalingHistory.isEmpty()) {
@@ -144,16 +140,14 @@ public class JDBCAutoScalerStateStore<KEY>
 
     @Override
     public void storeCollectedMetrics(
-            JobAutoScalerContext<KEY> jobContext, SortedMap<Instant, CollectedMetrics> metrics)
-            throws Exception {
+            Context jobContext, SortedMap<Instant, CollectedMetrics> metrics) throws Exception {
         jdbcStore.putSerializedState(
                 getSerializeKey(jobContext), COLLECTED_METRICS, serializeEvaluatedMetrics(metrics));
     }
 
     @Nonnull
     @Override
-    public SortedMap<Instant, CollectedMetrics> getCollectedMetrics(
-            JobAutoScalerContext<KEY> jobContext) {
+    public SortedMap<Instant, CollectedMetrics> getCollectedMetrics(Context jobContext) {
         Optional<String> serializedEvaluatedMetricsOpt =
                 jdbcStore.getSerializedState(getSerializeKey(jobContext), COLLECTED_METRICS);
         if (serializedEvaluatedMetricsOpt.isEmpty()) {
@@ -171,13 +165,13 @@ public class JDBCAutoScalerStateStore<KEY>
     }
 
     @Override
-    public void removeCollectedMetrics(JobAutoScalerContext<KEY> jobContext) {
+    public void removeCollectedMetrics(Context jobContext) {
         jdbcStore.removeSerializedState(getSerializeKey(jobContext), COLLECTED_METRICS);
     }
 
     @Override
     public void storeParallelismOverrides(
-            JobAutoScalerContext<KEY> jobContext, Map<String, String> parallelismOverrides) {
+            Context jobContext, Map<String, String> parallelismOverrides) {
         jdbcStore.putSerializedState(
                 getSerializeKey(jobContext),
                 PARALLELISM_OVERRIDES,
@@ -186,7 +180,7 @@ public class JDBCAutoScalerStateStore<KEY>
 
     @Nonnull
     @Override
-    public Map<String, String> getParallelismOverrides(JobAutoScalerContext<KEY> jobContext) {
+    public Map<String, String> getParallelismOverrides(Context jobContext) {
         return jdbcStore
                 .getSerializedState(getSerializeKey(jobContext), PARALLELISM_OVERRIDES)
                 .map(JDBCAutoScalerStateStore::deserializeParallelismOverrides)
@@ -194,17 +188,17 @@ public class JDBCAutoScalerStateStore<KEY>
     }
 
     @Override
-    public void removeParallelismOverrides(JobAutoScalerContext<KEY> jobContext) {
+    public void removeParallelismOverrides(Context jobContext) {
         jdbcStore.removeSerializedState(getSerializeKey(jobContext), PARALLELISM_OVERRIDES);
     }
 
     @Override
-    public void clearAll(JobAutoScalerContext<KEY> jobContext) {
+    public void clearAll(Context jobContext) {
         jdbcStore.clearAll(getSerializeKey(jobContext));
     }
 
     @Override
-    public void flush(JobAutoScalerContext<KEY> jobContext) throws Exception {
+    public void flush(Context jobContext) throws Exception {
         jdbcStore.flush(getSerializeKey(jobContext));
     }
 
@@ -213,12 +207,12 @@ public class JDBCAutoScalerStateStore<KEY>
         jdbcStore.removeInfoFromCache(getSerializeKey(jobKey));
     }
 
-    private String getSerializeKey(JobAutoScalerContext<KEY> jobContext) {
+    private String getSerializeKey(Context jobContext) {
         return getSerializeKey(jobContext.getJobKey());
     }
 
     private String getSerializeKey(KEY jobKey) {
-        return jobKeySerializer.serialize(jobKey);
+        return jobKey.toString();
     }
 
     // The serialization and deserialization are same with KubernetesAutoScalerStateStore
