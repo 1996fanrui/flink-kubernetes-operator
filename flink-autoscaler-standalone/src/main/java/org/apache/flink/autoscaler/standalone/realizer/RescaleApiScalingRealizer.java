@@ -98,7 +98,7 @@ public class RescaleApiScalingRealizer<KEY, Context extends JobAutoScalerContext
 
                 // We have an override for the vertex
                 var p = Integer.parseInt(overrideStr);
-                var newParallelism = new JobVertexResourceRequirements.Parallelism(1, p);
+                var newParallelism = new JobVertexResourceRequirements.Parallelism(p, p);
                 // If the requirements changed we mark this as scaling triggered
                 if (!parallelism.equals(newParallelism)) {
                     entry.setValue(new JobVertexResourceRequirements(newParallelism));

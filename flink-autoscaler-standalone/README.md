@@ -60,6 +60,23 @@ org.apache.flink.autoscaler.standalone.StandaloneAutoscalerEntrypoint \
 Updating the `flinkClusterHost` and `flinkClusterPort` based on your flink cluster. 
 In general, the host and port are the same as Flink WebUI.
 
+### Using the JDBC Autoscaler State Store
+
+Please download JDBC driver first.
+
+```
+JDBC_DRIVER_JAR=/Users/fanrui/Downloads/mysql-connector-java-8.0.30.jar
+
+java -cp flink-autoscaler-standalone-1.8-SNAPSHOT.jar:${JDBC_DRIVER_JAR} \
+org.apache.flink.autoscaler.standalone.StandaloneAutoscalerEntrypoint \
+--flinkClusterHost localhost \
+--flinkClusterPort 8081 \
+--state-store.type jdbc \
+--state-store.jdbc.url jdbc:mysql://localhost:3306/flink_autoscaler \
+--state-store.jdbc.username root \
+--state-store.jdbc.password 123456
+```
+
 ## Extensibility of autoscaler standalone
 
 Please click [here](../flink-autoscaler/README.md) to check out extensibility of generic autoscaler.
