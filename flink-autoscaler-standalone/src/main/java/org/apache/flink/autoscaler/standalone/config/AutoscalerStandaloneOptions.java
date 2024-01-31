@@ -17,6 +17,7 @@
 
 package org.apache.flink.autoscaler.standalone.config;
 
+import org.apache.flink.autoscaler.standalone.AutoscalerEventHandlerFactory.EventHandlerType;
 import org.apache.flink.autoscaler.standalone.AutoscalerStateStoreFactory.StateStoreType;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
@@ -108,5 +109,52 @@ public class AutoscalerStandaloneOptions {
                                                     + "In general, the environment variable name doesn't need to be changed. Users need to "
                                                     + "export the password using this environment variable.",
                                             code(STATE_STORE_TYPE.key()), code(JDBC.toString()))
+                                    .build());
+
+    public static final ConfigOption<EventHandlerType> EVENT_HANDLER_TYPE =
+            autoscalerStandaloneConfig("event-handler.type")
+                    .enumType(EventHandlerType.class)
+                    .defaultValue(EventHandlerType.LOGGING)
+                    .withDescription("The autoscaler event handler type.");
+
+    public static final ConfigOption<String> EVENT_HANDLER_JDBC_URL =
+            autoscalerStandaloneConfig("event-handler.jdbc.url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            Description.builder()
+                                    .text(
+                                            "The jdbc url of jdbc state store when %s has been set to %s, such as: %s.",
+                                            code(EVENT_HANDLER_TYPE.key()),
+                                            code(EventHandlerType.JDBC.toString()),
+                                            code("jdbc:mysql://localhost:3306/flink_autoscaler"))
+                                    .linebreak()
+                                    .text("This option is required when using JDBC event handler.")
+                                    .build());
+
+    public static final ConfigOption<String> EVENT_HANDLER_JDBC_USERNAME =
+            autoscalerStandaloneConfig("event-handler.jdbc.username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            Description.builder()
+                                    .text(
+                                            "The jdbc username of jdbc event handler when %s has been set to %s.",
+                                            code(EVENT_HANDLER_TYPE.key()),
+                                            code(EventHandlerType.JDBC.toString()))
+                                    .build());
+
+    public static final ConfigOption<String> EVENT_HANDLER_JDBC_PASSWORD_ENV_VARIABLE =
+            autoscalerStandaloneConfig("event-handler.jdbc.password-env-variable")
+                    .stringType()
+                    .defaultValue("EVENT_HANDLER_JDBC_PWD")
+                    .withDescription(
+                            Description.builder()
+                                    .text(
+                                            "The environment variable name of jdbc event handler password when %s has been set to %s. "
+                                                    + "In general, the environment variable name doesn't need to be changed. Users need to "
+                                                    + "export the password using this environment variable.",
+                                            code(EVENT_HANDLER_TYPE.key()),
+                                            code(EventHandlerType.JDBC.toString()))
                                     .build());
 }
