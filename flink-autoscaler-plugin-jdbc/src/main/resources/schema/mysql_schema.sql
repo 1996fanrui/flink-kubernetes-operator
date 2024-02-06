@@ -42,6 +42,7 @@ create table `t_flink_autoscaler_event_handler`
     `count`         int          not null comment 'The count of current event.',
     `event_key`     varchar(100) not null comment 'The event key is used for event deduplication.',
     primary key (`id`) using btree,
-    INDEX `job_key_reason_event_key_idx` (`job_key`, `reason`, `event_key`)
+    INDEX `job_key_reason_event_key_idx` (`job_key`, `reason`, `event_key`),
+    INDEX `job_key_reason_create_time_idx` (`job_key`, `reason`, `create_time`)
 ) engine=innodb default charset=utf8mb4 collate=utf8mb4_general_ci;
 
