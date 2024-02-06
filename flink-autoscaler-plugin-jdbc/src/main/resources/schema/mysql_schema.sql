@@ -33,13 +33,13 @@ create table `t_flink_autoscaler_state_store`
 create table `t_flink_autoscaler_event_handler`
 (
     `id`            bigint       not null auto_increment,
-    `create_time`   datetime     not null default current_timestamp comment 'create time',
-    `update_time`   datetime     not null default current_timestamp on update current_timestamp comment 'update time',
+    `create_time`   datetime     not null comment 'The create time',
+    `update_time`   datetime     not null comment 'The update time',
     `job_key`       varchar(191) not null comment 'The job key',
-    `reason`        varchar(500) not null comment 'The event reason, such as: ScalingReport, IneffectiveScaling and AutoscalerError, etc.',
+    `reason`        varchar(191) not null comment 'The event reason, such as: ScalingReport, IneffectiveScaling and AutoscalerError, etc.',
     `event_type`    varchar(100) not null comment 'The event type, such as: Normal, Warning.',
     `message`       longtext     not null comment 'The event message.',
-    `count`         int          not null comment 'The count of current event.',
+    `event_count`   int          not null comment 'The count of current event.',
     `event_key`     varchar(100) not null comment 'The event key is used for event deduplication.',
     primary key (`id`) using btree,
     INDEX `job_key_reason_event_key_idx` (`job_key`, `reason`, `event_key`),

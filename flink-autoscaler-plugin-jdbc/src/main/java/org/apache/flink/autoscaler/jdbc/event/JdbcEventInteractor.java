@@ -17,9 +17,15 @@
 
 package org.apache.flink.autoscaler.jdbc.event;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.autoscaler.event.AutoScalerEventHandler;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nonnull;
 
 import java.sql.Connection;
+import java.sql.Timestamp;
+import java.time.Clock;
 import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -28,6 +34,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class JdbcEventInteractor {
 
     private final Connection conn;
+    private Clock clock = Clock.systemDefaultZone();
 
     public JdbcEventInteractor(Connection conn) {
         this.conn = conn;
@@ -57,7 +64,7 @@ public class JdbcEventInteractor {
                                 rs.getString("reason"),
                                 rs.getString("event_type"),
                                 rs.getString("message"),
-                                rs.getInt("count"),
+                                rs.getInt("event_count"),
                                 rs.getString("event_key"));
             }
             return Optional.ofNullable(event);
@@ -72,28 +79,40 @@ public class JdbcEventInteractor {
             String eventKey)
             throws Exception {
         var query =
-                "INSERT INTO t_flink_autoscaler_event_handler (job_key, reason, event_type, message, `count`, event_key)"
-                        + " values (?, ?, ?, ?, ?, ?)";
+                "INSERT INTO t_flink_autoscaler_event_handler ("
+                        + "create_time, update_time, job_key, reason, event_type, message, event_count, event_key)"
+                        + " values (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        var createTime = Timestamp.from(clock.instant());
         try (var pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, jobKey);
-            pstmt.setString(2, reason);
-            pstmt.setString(3, type.toString());
-            pstmt.setString(4, message);
-            pstmt.setInt(5, 1);
-            pstmt.setString(6, eventKey);
+            pstmt.setTimestamp(1, createTime);
+            pstmt.setTimestamp(2, createTime);
+            pstmt.setString(3, jobKey);
+            pstmt.setString(4, reason);
+            pstmt.setString(5, type.toString());
+            pstmt.setString(6, message);
+            pstmt.setInt(7, 1);
+            pstmt.setString(8, eventKey);
             pstmt.executeUpdate();
         }
     }
 
-    public void updateEvent(long id, String message, int count) throws Exception {
+    public void updateEvent(long id, String message, int eventCount) throws Exception {
         var query =
-                "UPDATE t_flink_autoscaler_event_handler set message = ?, `count` = ? where id = ?";
+                "UPDATE t_flink_autoscaler_event_handler set update_time = ?, message = ?, event_count = ? where id = ?";
 
+        var updateTime = Timestamp.from(clock.instant());
         try (var pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, message);
-            pstmt.setInt(2, count);
-            pstmt.setLong(3, id);
+            pstmt.setTimestamp(1, updateTime);
+            pstmt.setString(2, message);
+            pstmt.setInt(3, eventCount);
+            pstmt.setLong(4, id);
             checkState(pstmt.executeUpdate() == 1, "Update event id=[%s] fails.", id);
         }
+    }
+
+    @VisibleForTesting
+    void setClock(@Nonnull Clock clock) {
+        this.clock = Preconditions.checkNotNull(clock);
     }
 }
