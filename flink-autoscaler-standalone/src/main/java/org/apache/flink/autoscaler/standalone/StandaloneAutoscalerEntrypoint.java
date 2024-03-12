@@ -27,6 +27,7 @@ import org.apache.flink.autoscaler.ScalingExecutor;
 import org.apache.flink.autoscaler.ScalingMetricEvaluator;
 import org.apache.flink.autoscaler.event.AutoScalerEventHandler;
 import org.apache.flink.autoscaler.standalone.flinkcluster.FlinkClusterJobListFetcher;
+import org.apache.flink.autoscaler.standalone.flinkmanager.FlinkManagerJobListFetcher;
 import org.apache.flink.autoscaler.standalone.realizer.RescaleApiScalingRealizer;
 import org.apache.flink.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.client.program.rest.RestClusterClient;
@@ -52,7 +53,9 @@ public class StandaloneAutoscalerEntrypoint {
         LOG.info("The standalone autoscaler is started, configuration: {}", conf);
 
         // Initialize JobListFetcher and JobAutoScaler.
-        JobListFetcher<KEY, Context> jobListFetcher = createJobListFetcher(conf);
+        JobListFetcher<KEY, Context> jobListFetcher =
+                (JobListFetcher<KEY, Context>)
+                        new FlinkManagerJobListFetcher(conf.get(FLINK_CLIENT_TIMEOUT));
 
         AutoScalerStateStore<KEY, Context> stateStore = AutoscalerStateStoreFactory.create(conf);
         AutoScalerEventHandler<KEY, Context> eventHandler =

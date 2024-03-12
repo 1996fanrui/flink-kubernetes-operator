@@ -1,10 +1,26 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.flink.autoscaler.standalone.flinkmanager;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.shopee.di.fm.common.configuration.Configuration;
-import com.shopee.di.fm.common.configuration.GlobalConfiguration;
 import com.shopee.di.fm.common.dto.InstanceDTO;
 import com.shopee.di.fm.common.dto.ProjectDTO;
 import com.shopee.di.fm.common.enums.InternalCallerType;
@@ -13,10 +29,7 @@ import com.shopee.di.fm.common.rest.RestMethod;
 import com.shopee.di.fm.common.rest.RestParams;
 import com.shopee.di.fm.common.rest.fmclient.FMRestClient;
 import com.shopee.di.fm.common.rest.fmclient.FMRestException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,18 +38,16 @@ import static com.shopee.di.fm.common.response.RestResponse.OBJECT_MAPPER;
 /** The client to communicate with Flink Manager rest service. */
 public class FMClient extends FMRestClient {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FMClient.class);
-
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
-    private static final JavaType VOID_RETURN_TYPE =
-            OBJECT_MAPPER.getTypeFactory().constructType(Void.class);
-
     public static FMClient getInstance() {
         FMClient client = (FMClient) INSTANCE_HOLDER.get();
         if (client != null) {
             return client;
         } else {
-            FMClient newClient = new FMClient(GlobalConfiguration.getGlobalConfiguration());
+            // TODO load the conf from conf file.
+            // FMClient newClient = new FMClient(GlobalConfiguration.getGlobalConfiguration());
+            final Configuration conf = new Configuration();
+            conf.setString("flink-common.fm.address", "https://flink.idata.shopeemobile.com");
+            FMClient newClient = new FMClient(conf);
             if (INSTANCE_HOLDER.compareAndSet(null, newClient)) {
                 return newClient;
             } else {
@@ -94,7 +105,6 @@ public class FMClient extends FMRestClient {
         restParams.addQuery("current", String.valueOf(current));
         restParams.addQuery("pageSize", String.valueOf(pageSize));
         restParams.addQuery("projectName", String.valueOf(projectName));
-        restParams.addQuery("withResourceProfile", String.valueOf(false));
 
         final RestResponse<List<InstanceDTO>> response =
                 restClient.request(

@@ -45,14 +45,14 @@ public class AutoScalerOptions {
     public static final ConfigOption<Boolean> AUTOSCALER_ENABLED =
             autoScalerConfig("enabled")
                     .booleanType()
-                    .defaultValue(false)
+                    .defaultValue(true)
                     .withFallbackKeys(oldOperatorConfigKey("enabled"))
                     .withDescription("Enable job autoscaler module.");
 
     public static final ConfigOption<Boolean> SCALING_ENABLED =
             autoScalerConfig("scaling.enabled")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withFallbackKeys(oldOperatorConfigKey("scaling.enabled"))
                     .withDescription(
                             "Enable vertex scaling execution by the autoscaler. If disabled, the autoscaler will only collect metrics and evaluate the suggested parallelism for each vertex but will not upgrade the jobs.");
