@@ -38,7 +38,9 @@ public class RestMapperUtils {
         strictObjectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
 
         flexibleObjectMapper = strictObjectMapper.copy();
-        flexibleObjectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        flexibleObjectMapper.disable(
+                DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
     }
 
     /**
