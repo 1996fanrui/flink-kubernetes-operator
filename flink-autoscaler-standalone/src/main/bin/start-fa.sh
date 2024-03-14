@@ -28,4 +28,4 @@ echo "LOG_SETTING: ${LOG_SETTING}"
 
 exec /opt/jdk-17.0.5/bin/java ${FA_TIMEZONE} ${FA_JVM_ARGS} ${LOG_SETTING} -classpath "${FA_CLASSPATH}" org.apache.flink.autoscaler.standalone.StandaloneAutoscalerEntrypoint
 
-# /opt/jdk-17.0.5/bin/java -classpath ./flink-autoscaler-standalone-1.8-SNAPSHOT.jar org.apache.flink.autoscaler.standalone.StandaloneAutoscalerEntrypoint
+# nohup /opt/jdk-17.0.5/bin/java -classpath ./flink-autoscaler-standalone-1.8-SNAPSHOT.jar org.apache.flink.autoscaler.standalone.StandaloneAutoscalerEntrypoint > autoscaler.log &
