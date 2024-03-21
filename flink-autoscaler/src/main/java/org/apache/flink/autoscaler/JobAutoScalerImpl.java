@@ -177,6 +177,9 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
 
         var collectedMetrics = metricsCollector.updateMetrics(ctx, stateStore);
         var jobTopology = collectedMetrics.getJobTopology();
+        if (!jobTopology.isRunning()) {
+            return;
+        }
 
         var now = clock.instant();
         var scalingTracking = getTrimmedScalingTracking(stateStore, ctx, now);

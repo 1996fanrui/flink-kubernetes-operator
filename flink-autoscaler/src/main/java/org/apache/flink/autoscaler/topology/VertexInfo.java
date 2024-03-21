@@ -42,7 +42,9 @@ public class VertexInfo {
 
     private final int originalMaxParallelism;
 
-    private final boolean finished;
+    private final int finishedTasks;
+
+    private final int runningTasks;
 
     private IOMetrics ioMetrics;
 
@@ -51,14 +53,16 @@ public class VertexInfo {
             Map<JobVertexID, ShipStrategy> inputs,
             int parallelism,
             int maxParallelism,
-            boolean finished,
+            int finishedTasks,
+            int runningTasks,
             IOMetrics ioMetrics) {
         this.id = id;
         this.inputs = inputs;
         this.parallelism = parallelism;
         this.maxParallelism = maxParallelism;
         this.originalMaxParallelism = maxParallelism;
-        this.finished = finished;
+        this.finishedTasks = finishedTasks;
+        this.runningTasks = runningTasks;
         this.ioMetrics = ioMetrics;
     }
 
@@ -68,8 +72,26 @@ public class VertexInfo {
             Map<JobVertexID, ShipStrategy> inputs,
             int parallelism,
             int maxParallelism,
+            boolean finished,
             IOMetrics ioMetrics) {
-        this(id, inputs, parallelism, maxParallelism, false, ioMetrics);
+        this(
+                id,
+                inputs,
+                parallelism,
+                maxParallelism,
+                finished ? parallelism : 0,
+                finished ? 0 : parallelism,
+                ioMetrics);
+    }
+
+    @VisibleForTesting
+    public VertexInfo(
+            JobVertexID id,
+            Map<JobVertexID, ShipStrategy> inputs,
+            int parallelism,
+            int maxParallelism,
+            IOMetrics ioMetrics) {
+        this(id, inputs, parallelism, maxParallelism, 0, parallelism, ioMetrics);
     }
 
     @VisibleForTesting
@@ -83,5 +105,13 @@ public class VertexInfo {
 
     public void updateMaxParallelism(int maxParallelism) {
         setMaxParallelism(Math.min(originalMaxParallelism, maxParallelism));
+    }
+
+    public boolean isFinished() {
+        return finishedTasks == parallelism;
+    }
+
+    public boolean isRunning() {
+        return runningTasks > 0 && runningTasks + finishedTasks == parallelism;
     }
 }

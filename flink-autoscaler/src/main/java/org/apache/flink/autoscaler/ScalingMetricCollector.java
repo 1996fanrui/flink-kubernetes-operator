@@ -117,6 +117,10 @@ public abstract class ScalingMetricCollector<KEY, Context extends JobAutoScalerC
             metricHistory.clear();
         }
         var topology = getJobTopology(ctx, stateStore, jobDetailsInfo);
+        if (!topology.isRunning()) {
+            return new CollectedMetricHistory(topology, Collections.emptySortedMap(), jobRunningTs);
+        }
+
         var stableTime = jobRunningTs.plus(conf.get(AutoScalerOptions.STABILIZATION_INTERVAL));
         final boolean isStabilizing = now.isBefore(stableTime);
 
@@ -223,19 +227,23 @@ public abstract class ScalingMetricCollector<KEY, Context extends JobAutoScalerC
         var json = rawPlan.substring("RawJson{json='".length(), rawPlan.length() - "'}".length());
 
         var metrics = new HashMap<JobVertexID, IOMetrics>();
-        var finished = new HashSet<JobVertexID>();
+        var finishedTasks = new HashMap<JobVertexID, Integer>();
+        var runningTasks = new HashMap<JobVertexID, Integer>();
         jobDetailsInfo
                 .getJobVertexInfos()
                 .forEach(
                         d -> {
-                            if (d.getExecutionState() == ExecutionState.FINISHED) {
-                                finished.add(d.getJobVertexID());
-                            }
+                            var tasksPerState = d.getTasksPerState();
+                            finishedTasks.put(
+                                    d.getJobVertexID(), tasksPerState.get(ExecutionState.FINISHED));
+                            runningTasks.put(
+                                    d.getJobVertexID(), tasksPerState.get(ExecutionState.RUNNING));
                             metrics.put(
                                     d.getJobVertexID(), IOMetrics.from(d.getJobVertexMetrics()));
                         });
 
-        return JobTopology.fromJsonPlan(json, maxParallelismMap, metrics, finished);
+        return JobTopology.fromJsonPlan(
+                json, maxParallelismMap, finishedTasks, runningTasks, metrics);
     }
 
     private void updateKafkaSourceMaxParallelisms(Context ctx, JobID jobId, JobTopology topology)

@@ -47,6 +47,13 @@ public class JobTopology {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Whether all tasks are running, it's different with JobStatus.RUNNING. The JobStatus will be
+     * RUNNING once job starts schedule, so it doesn't mean all tasks are running. Especially, when
+     * the resource isn't enough or job recovers from large state.
+     */
+    @Getter private final boolean isRunning;
+
     @Getter private final Map<JobVertexID, VertexInfo> vertexInfos;
     @Getter private final Set<JobVertexID> finishedVertices;
     @Getter private final List<JobVertexID> verticesInTopologicalOrder;
@@ -60,6 +67,7 @@ public class JobTopology {
     }
 
     public JobTopology(Set<VertexInfo> vertexInfo) {
+        this.isRunning = jobIsRunning(vertexInfo);
 
         Map<JobVertexID, Map<JobVertexID, ShipStrategy>> vertexOutputs = new HashMap<>();
         vertexInfos =
@@ -101,6 +109,13 @@ public class JobTopology {
         get(vertexID).updateMaxParallelism(maxParallelism);
     }
 
+    private boolean jobIsRunning(Set<VertexInfo> vertexInfos) {
+        // All vertices are running or finished, and at least one vertex is running.
+        return vertexInfos.stream()
+                        .allMatch(vertexInfo -> vertexInfo.isRunning() || vertexInfo.isFinished())
+                && vertexInfos.stream().anyMatch(VertexInfo::isRunning);
+    }
+
     private List<JobVertexID> returnVerticesInTopologicalOrder() {
         List<JobVertexID> sorted = new ArrayList<>(vertexInfos.size());
 
@@ -135,8 +150,9 @@ public class JobTopology {
     public static JobTopology fromJsonPlan(
             String jsonPlan,
             Map<JobVertexID, Integer> maxParallelismMap,
-            Map<JobVertexID, IOMetrics> metrics,
-            Set<JobVertexID> finishedVertices)
+            Map<JobVertexID, Integer> finishedTasks,
+            Map<JobVertexID, Integer> runningTasks,
+            Map<JobVertexID, IOMetrics> metrics)
             throws JsonProcessingException {
         ObjectNode plan = objectMapper.readValue(jsonPlan, ObjectNode.class);
         ArrayNode nodes = (ArrayNode) plan.get("nodes");
@@ -147,15 +163,18 @@ public class JobTopology {
             var vertexId = JobVertexID.fromHexString(node.get("id").asText());
             var inputs = new HashMap<JobVertexID, ShipStrategy>();
             var ioMetrics = metrics.get(vertexId);
-            var finished = finishedVertices.contains(vertexId);
+            var parallelism = node.get("parallelism").asInt();
             vertexInfo.add(
                     new VertexInfo(
                             vertexId,
                             inputs,
-                            node.get("parallelism").asInt(),
+                            parallelism,
                             maxParallelismMap.get(vertexId),
-                            finished,
-                            finished ? IOMetrics.FINISHED_METRICS : ioMetrics));
+                            finishedTasks.get(vertexId),
+                            runningTasks.get(vertexId),
+                            parallelism == finishedTasks.get(vertexId)
+                                    ? IOMetrics.FINISHED_METRICS
+                                    : ioMetrics));
             if (node.has("inputs")) {
                 for (JsonNode input : node.get("inputs")) {
                     inputs.put(

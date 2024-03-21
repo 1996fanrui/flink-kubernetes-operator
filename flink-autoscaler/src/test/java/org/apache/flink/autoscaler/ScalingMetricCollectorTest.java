@@ -113,10 +113,10 @@ public class ScalingMetricCollectorTest {
                         + "        \"CANCELING\": 0,\n"
                         + "        \"CANCELED\": 0,\n"
                         + "        \"RECONCILING\": 0,\n"
-                        + "        \"RUNNING\": 2,\n"
+                        + "        \"RUNNING\": 0,\n"
                         + "        \"FAILED\": 0,\n"
                         + "        \"CREATED\": 0,\n"
-                        + "        \"FINISHED\": 0\n"
+                        + "        \"FINISHED\": 2\n"
                         + "      },\n"
                         + "      \"metrics\": {\n"
                         + "        \"read-bytes\": 0,\n"
@@ -305,7 +305,7 @@ public class ScalingMetricCollectorTest {
         // Mark source finished, should not be queried again
         t2 =
                 new JobTopology(
-                        new VertexInfo(source2, Map.of(), 1, 1, true, null),
+                        new VertexInfo(source2, Map.of(), 1, 1, 1, 0, null),
                         new VertexInfo(sink, Map.of(source2, REBALANCE), 1, 1));
         collector.queryFilteredMetricNames(context, t2);
         assertEquals(3, metricNameQueryCounter.get(source));

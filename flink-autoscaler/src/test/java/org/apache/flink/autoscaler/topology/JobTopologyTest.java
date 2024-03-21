@@ -27,7 +27,6 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessin
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -68,6 +67,8 @@ public class JobTopologyTest {
 
         var vertices = new HashMap<String, JobVertexID>();
         var maxParallelism = new HashMap<JobVertexID, Integer>();
+        var finishedTasks = new HashMap<JobVertexID, Integer>();
+        var runningTasks = new HashMap<JobVertexID, Integer>();
         for (JobVertex vertex : jobGraph.getVertices()) {
             vertices.put(vertex.getName(), vertex.getID());
             maxParallelism.put(
@@ -75,11 +76,13 @@ public class JobTopologyTest {
                     vertex.getMaxParallelism() != -1
                             ? vertex.getMaxParallelism()
                             : SchedulerBase.getDefaultMaxParallelism(vertex));
+            finishedTasks.put(vertex.getID(), 0);
+            runningTasks.put(vertex.getID(), vertex.getParallelism());
         }
 
         JobTopology jobTopology =
                 JobTopology.fromJsonPlan(
-                        jsonPlan, maxParallelism, Map.of(), Collections.emptySet());
+                        jsonPlan, maxParallelism, finishedTasks, runningTasks, Map.of());
 
         assertTrue(jobTopology.get(vertices.get("Sink: sink1")).getOutputs().isEmpty());
         assertTrue(jobTopology.get(vertices.get("Sink: sink2")).getOutputs().isEmpty());
