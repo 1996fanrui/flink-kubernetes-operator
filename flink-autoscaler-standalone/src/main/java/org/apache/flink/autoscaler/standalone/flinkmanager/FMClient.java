@@ -47,6 +47,8 @@ public class FMClient extends FMRestClient {
             // FMClient newClient = new FMClient(GlobalConfiguration.getGlobalConfiguration());
             final Configuration conf = new Configuration();
             conf.setString("flink-common.fm.address", "https://flink.idata.shopeemobile.com");
+            conf.setString("flink-common.fm.connection-timeout", "40s");
+
             FMClient newClient = new FMClient(conf);
             if (INSTANCE_HOLDER.compareAndSet(null, newClient)) {
                 return newClient;
