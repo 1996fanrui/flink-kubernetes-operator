@@ -30,6 +30,7 @@ import org.apache.flink.runtime.rest.messages.ClusterConfigurationInfoHeaders;
 import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.JobMessageParameters;
+import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
 import com.shopee.di.fm.common.dto.InstanceDTO;
 import com.shopee.di.fm.common.enums.JobType;
@@ -40,6 +41,9 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -51,76 +55,103 @@ public class FlinkManagerJobListFetcher
 
     private final FMClient fmClient;
     private final Duration restClientTimeout;
+    private final CompletionService<List<JobAutoScalerContext<Long>>> cs;
 
     public FlinkManagerJobListFetcher(Duration restClientTimeout) {
         this.fmClient = FMClient.getInstance();
         this.restClientTimeout = restClientTimeout;
+        this.cs =
+                new ExecutorCompletionService<>(
+                        Executors.newFixedThreadPool(
+                                100, new ExecutorThreadFactory("instance-fetcher")));
     }
 
     @Override
     public Collection<JobAutoScalerContext<Long>> fetch() throws Exception {
-        //        final List<ProjectDTO> projectsList = fmClient.fetchAllProjects();
-        //        for (ProjectDTO project : projectsList) {
-        //            LOG.info("project name: {}", project.getName());
-        //        }
-
-        final long startTime = System.currentTimeMillis();
-        final String projectName = "guokuai_test";
-        LOG.info("Start fetch project [{}] job list.", projectName);
-
-        final List<InstanceDTO> instances =
-                fmClient.getRunningInstances(projectName).stream()
-                        // Autoscaler only works for streaming job.
-                        .filter(instance -> instance.getJobType() == JobType.STREAMING)
-                        .collect(Collectors.toList());
-
-        LOG.info("Project {} has {} running streaming instances.", projectName, instances.size());
-
+        var startFetchTime = System.currentTimeMillis();
+        var projectsList = fmClient.fetchAllProjects();
         var result = new LinkedList<JobAutoScalerContext<Long>>();
-        for (InstanceDTO instance : instances) {
-            LOG.info(
-                    "instance id :{}, name: {}, appId:{}, jobType: {}, yarnTrackingUrl : {}, trackingUrl : {}",
-                    instance.getId(),
-                    instance.getApplicationName(),
-                    instance.getApplicationId(),
-                    instance.getJobType(),
-                    instance.getYarnTrackingUrl(),
-                    instance.getTrackingUrl());
-            var restServerAddress = String.format("http://%s", instance.getTrackingUrl());
-            try (var restClusterClient = getRestClient(new Configuration(), restServerAddress)) {
-                final Collection<JobStatusMessage> jobStatusMessages =
-                        restClusterClient
-                                .listJobs()
-                                .get(restClientTimeout.toSeconds(), TimeUnit.SECONDS);
-                if (jobStatusMessages.size() > 1) {
-                    LOG.warn(
-                            "App {} has {} jobs, the yarnTrackingUrl is {}",
-                            instance.getApplicationId(),
-                            jobStatusMessages.size(),
-                            instance.getYarnTrackingUrl());
-                    continue;
-                }
-                jobStatusMessages.forEach(
-                        jobStatusMessage -> {
-                            try {
-                                result.add(
-                                        generateJobContext(
-                                                restClusterClient,
-                                                restServerAddress,
-                                                instance.getApplicationId(),
-                                                jobStatusMessage));
-                            } catch (Throwable e) {
-                                throw new RuntimeException("generateJobContext throw exception", e);
-                            }
-                        });
+
+        for (var project : projectsList) {
+            var startTime = System.currentTimeMillis();
+            var projectName = project.getName();
+            LOG.debug("Start fetch project [{}] job list.", projectName);
+
+            var instances =
+                    fmClient.getRunningInstances(projectName).stream()
+                            // Autoscaler only works for streaming job.
+                            .filter(instance -> instance.getJobType() == JobType.STREAMING)
+                            .collect(Collectors.toList());
+
+            for (var instance : instances) {
+                cs.submit(() -> fetchJobContextForCurrentInstance(instance));
             }
+            var oldContextCount = result.size();
+            for (int i = 0; i < instances.size(); i++) {
+                result.addAll(cs.take().get());
+            }
+            LOG.info(
+                    "Project {} has {} running streaming instances, it fetched {} job contexts, costs {} ms.",
+                    projectName,
+                    instances.size(),
+                    result.size() - oldContextCount,
+                    (System.currentTimeMillis() - startTime));
         }
         LOG.info(
-                "Project {} generated {} job contexts, it costs {} ms.",
-                projectName,
+                "All Project generated {} job contexts, it costs {} ms.",
                 result.size(),
-                (System.currentTimeMillis() - startTime));
+                (System.currentTimeMillis() - startFetchTime));
 
+        return result;
+    }
+
+    private List<JobAutoScalerContext<Long>> fetchJobContextForCurrentInstance(
+            InstanceDTO instance) {
+        var result = new LinkedList<JobAutoScalerContext<Long>>();
+
+        LOG.debug(
+                "instance id :{}, name: {}, appId:{}, jobType: {}, yarnTrackingUrl : {}, trackingUrl : {}",
+                instance.getId(),
+                instance.getApplicationName(),
+                instance.getApplicationId(),
+                instance.getJobType(),
+                instance.getYarnTrackingUrl(),
+                instance.getTrackingUrl());
+        var restServerAddress = String.format("http://%s", instance.getTrackingUrl());
+        try (var restClusterClient = getRestClient(new Configuration(), restServerAddress)) {
+            final Collection<JobStatusMessage> jobStatusMessages =
+                    restClusterClient
+                            .listJobs()
+                            .get(restClientTimeout.toSeconds(), TimeUnit.SECONDS);
+            if (jobStatusMessages.size() > 1) {
+                LOG.warn(
+                        "App {} has {} jobs, the yarnTrackingUrl is {}",
+                        instance.getApplicationId(),
+                        jobStatusMessages.size(),
+                        instance.getYarnTrackingUrl());
+                return result;
+            }
+            jobStatusMessages.forEach(
+                    jobStatusMessage -> {
+                        try {
+                            result.add(
+                                    generateJobContext(
+                                            restClusterClient,
+                                            restServerAddress,
+                                            instance.getApplicationId(),
+                                            jobStatusMessage));
+                        } catch (Throwable e) {
+                            throw new RuntimeException("generateJobContext throw exception", e);
+                        }
+                    });
+        } catch (Throwable e) {
+            LOG.info(
+                    "Fetch job context fails for app [{}], appId: [{}], instanceId: [{}]",
+                    instance.getApplicationName(),
+                    instance.getApplicationId(),
+                    instance.getId(),
+                    e);
+        }
         return result;
     }
 

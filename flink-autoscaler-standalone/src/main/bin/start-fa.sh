@@ -51,6 +51,7 @@ export JDBC_PWD=123456
 
 exec /opt/jdk-17.0.5/bin/java -classpath ./flink-autoscaler-standalone-1.8-SNAPSHOT.jar:${JDBC_DRIVER_JAR} \
 org.apache.flink.autoscaler.standalone.StandaloneAutoscalerEntrypoint \
+--autoscaler.standalone.control-loop.interval 2min \
 --autoscaler.standalone.state-store.type jdbc \
 --autoscaler.standalone.event-handler.type jdbc \
 --autoscaler.standalone.jdbc.url jdbc:mysql://xxx:6606/db_name \
