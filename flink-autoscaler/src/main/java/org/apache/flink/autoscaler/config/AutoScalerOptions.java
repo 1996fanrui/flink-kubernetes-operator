@@ -317,7 +317,7 @@ public class AutoScalerOptions {
     public static final ConfigOption<Duration> SCALING_EVENT_INTERVAL =
             autoScalerConfig("scaling.event.interval")
                     .durationType()
-                    .defaultValue(Duration.ofMinutes(30))
+                    .defaultValue(Duration.ofHours(4))
                     .withFallbackKeys(oldOperatorConfigKey("scaling.event.interval"))
                     .withDescription("Time interval to resend the identical event");
 
