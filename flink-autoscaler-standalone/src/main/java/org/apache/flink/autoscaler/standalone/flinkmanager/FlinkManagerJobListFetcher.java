@@ -21,6 +21,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.standalone.JobListFetcher;
 import org.apache.flink.autoscaler.standalone.StandaloneAutoscalerExecutor;
+import org.apache.flink.autoscaler.utils.JobStatusUtils;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
@@ -30,6 +31,7 @@ import org.apache.flink.runtime.rest.messages.ClusterConfigurationInfoHeaders;
 import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.JobMessageParameters;
+import org.apache.flink.runtime.rest.messages.JobsOverviewHeaders;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
 import com.shopee.di.fm.common.dto.InstanceDTO;
@@ -121,7 +123,11 @@ public class FlinkManagerJobListFetcher
         try (var restClusterClient = getRestClient(new Configuration(), restServerAddress)) {
             final Collection<JobStatusMessage> jobStatusMessages =
                     restClusterClient
-                            .listJobs()
+                            .sendRequest(
+                                    JobsOverviewHeaders.getInstance(),
+                                    EmptyMessageParameters.getInstance(),
+                                    EmptyRequestBody.getInstance())
+                            .thenApply(JobStatusUtils::toJobStatusMessage)
                             .get(restClientTimeout.toSeconds(), TimeUnit.SECONDS);
             if (jobStatusMessages.size() > 1) {
                 LOG.warn(
