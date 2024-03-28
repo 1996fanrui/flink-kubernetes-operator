@@ -24,6 +24,8 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import javax.annotation.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -62,6 +64,19 @@ public interface AutoScalerEventHandler<KEY, Context extends JobAutoScalerContex
             String message,
             @Nullable String messageKey,
             @Nullable Duration interval);
+
+    /**
+     * Handle exception, and the exception event is warning type and don't deduplicate by default.
+     */
+    default void handleException(Context context, String reason, Throwable e) {
+        var message = e.getMessage();
+        if (message == null) {
+            var stream = new ByteArrayOutputStream();
+            e.printStackTrace(new PrintStream(stream));
+            message = stream.toString();
+        }
+        handleEvent(context, Type.Warning, reason, message, null, null);
+    }
 
     /**
      * Handle scaling reports.
