@@ -60,7 +60,7 @@ public class AutoScalerOptions {
     public static final ConfigOption<Duration> METRICS_WINDOW =
             autoScalerConfig("metrics.window")
                     .durationType()
-                    .defaultValue(Duration.ofMinutes(15))
+                    .defaultValue(Duration.ofHours(36))
                     .withFallbackKeys(oldOperatorConfigKey("metrics.window"))
                     .withDescription("Scaling metrics aggregation window size.");
 
