@@ -1,0 +1,21 @@
+stages:
+  - build
+
+cache:
+  paths:
+    - .m2/repository
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+jdk11:
+  image: maven:3.8.4-openjdk-11
+  stage: build
+  script:
+    - mvn clean install -pl flink-autoscaler,flink-autoscaler-plugin-jdbc,flink-autoscaler-standalone
+
+jdk17:
+  image: maven:3.8.4-openjdk-17
+  stage: build
+  script:
+    - mvn clean install -pl flink-autoscaler,flink-autoscaler-plugin-jdbc,flink-autoscaler-standalone
