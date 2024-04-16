@@ -34,6 +34,12 @@ under the License.
 
     <dependencies>
         <dependency>
+            <groupId>com.shopee.di</groupId>
+            <artifactId>flink-manager-common</artifactId>
+            <version>v2.2-preview-1</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-autoscaler</artifactId>
             <version>${project.version}</version>
