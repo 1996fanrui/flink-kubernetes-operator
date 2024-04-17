@@ -121,7 +121,10 @@ public class TestingMetricsCollector<KEY, Context extends JobAutoScalerContext<K
     }
 
     @Override
-    protected Instant getJobRunningTs(JobDetailsInfo jobDetailsInfo) {
+    protected Instant getJobRunningTs(
+            JobDetailsInfo jobDetailsInfo,
+            JobAutoScalerContext<KEY> context,
+            Duration clientTimeout) {
         return jobUpdateTs;
     }
 }

@@ -19,7 +19,6 @@ package org.apache.flink.autoscaler;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.autoscaler.config.AutoScalerOptions;
 import org.apache.flink.autoscaler.exceptions.NotReadyException;
 import org.apache.flink.autoscaler.metrics.CollectedMetricHistory;
@@ -38,6 +37,9 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.JobIDPathParameter;
 import org.apache.flink.runtime.rest.messages.JobVertexIdPathParameter;
+import org.apache.flink.runtime.rest.messages.JobVertexMessageParameters;
+import org.apache.flink.runtime.rest.messages.SubtasksTimesHeaders;
+import org.apache.flink.runtime.rest.messages.SubtasksTimesInfo;
 import org.apache.flink.runtime.rest.messages.job.JobDetailsInfo;
 import org.apache.flink.runtime.rest.messages.job.metrics.AggregatedMetric;
 import org.apache.flink.runtime.rest.messages.job.metrics.AggregatedSubtaskMetricsHeaders;
@@ -107,7 +109,9 @@ public abstract class ScalingMetricCollector<KEY, Context extends JobAutoScalerC
 
         var jobDetailsInfo =
                 getJobDetailsInfo(ctx, conf.get(AutoScalerOptions.FLINK_CLIENT_TIMEOUT));
-        var jobRunningTs = getJobRunningTs(jobDetailsInfo);
+        var jobRunningTs =
+                getJobRunningTs(
+                        jobDetailsInfo, ctx, conf.get(AutoScalerOptions.FLINK_CLIENT_TIMEOUT));
         // We detect job change compared to our collected metrics by checking against the earliest
         // metric timestamp
         if (!metricHistory.isEmpty() && jobRunningTs.isAfter(metricHistory.firstKey())) {
@@ -184,12 +188,62 @@ public abstract class ScalingMetricCollector<KEY, Context extends JobAutoScalerC
     }
 
     @VisibleForTesting
-    protected Instant getJobRunningTs(JobDetailsInfo jobDetailsInfo) {
-        final Map<JobStatus, Long> timestamps = jobDetailsInfo.getTimestamps();
+    protected Instant getJobRunningTs(
+            JobDetailsInfo jobDetailsInfo,
+            JobAutoScalerContext<KEY> context,
+            Duration clientTimeout)
+            throws Exception {
+        Long jobRunningTs = null;
+        try (var restClient = context.getRestClusterClient()) {
+            for (var jobVertexDetailsInfo : jobDetailsInfo.getJobVertexInfos()) {
+                for (var subtaskTimeInfo :
+                        querySubtasksTimesInfo(
+                                        restClient,
+                                        jobDetailsInfo.getJobId(),
+                                        jobVertexDetailsInfo.getJobVertexID(),
+                                        clientTimeout)
+                                .getSubtasks()) {
+                    long subtaskRunningTime =
+                            subtaskTimeInfo
+                                    .getTimestamps()
+                                    .getOrDefault(ExecutionState.RUNNING, 0L);
+                    checkState(
+                            subtaskRunningTime != 0,
+                            "The subtask %s of job %s vertex %s is not switched to RUNNING so far.",
+                            subtaskTimeInfo.getSubtask(),
+                            jobDetailsInfo.getJobId(),
+                            jobVertexDetailsInfo.getJobVertexID());
+                    if (jobRunningTs == null) {
+                        jobRunningTs = subtaskRunningTime;
+                    } else if (jobRunningTs < subtaskRunningTime) {
+                        // jobRunningTs is the time when the last subtask became running
+                        jobRunningTs = subtaskRunningTime;
+                    }
+                }
+            }
+        }
+        checkState(jobRunningTs != null, "No any subtask is running.");
+        return Instant.ofEpochMilli(jobRunningTs);
+    }
 
-        final Long runningTs = timestamps.get(JobStatus.RUNNING);
-        checkState(runningTs != null, "Unable to find when the job was switched to RUNNING.");
-        return Instant.ofEpochMilli(runningTs);
+    @SneakyThrows
+    private SubtasksTimesInfo querySubtasksTimesInfo(
+            RestClusterClient<String> restClient,
+            JobID jobID,
+            JobVertexID jobVertexID,
+            Duration clientTimeout) {
+        var parameters = new JobVertexMessageParameters();
+        var pathIt = parameters.getPathParameters().iterator();
+
+        ((JobIDPathParameter) pathIt.next()).resolve(jobID);
+        ((JobVertexIdPathParameter) pathIt.next()).resolve(jobVertexID);
+
+        return restClient
+                .sendRequest(
+                        SubtasksTimesHeaders.getInstance(),
+                        parameters,
+                        EmptyRequestBody.getInstance())
+                .get(clientTimeout.toSeconds(), TimeUnit.SECONDS);
     }
 
     protected JobTopology getJobTopology(

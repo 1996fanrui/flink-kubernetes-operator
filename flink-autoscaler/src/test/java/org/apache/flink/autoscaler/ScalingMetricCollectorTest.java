@@ -239,7 +239,7 @@ public class ScalingMetricCollectorTest {
     }
 
     @Test
-    public void testJobUpdateTsLogic() {
+    public void testJobUpdateTsLogic() throws Exception {
         var details =
                 new JobDetailsInfo(
                         new JobID(),
@@ -256,7 +256,8 @@ public class ScalingMetricCollectorTest {
                         Map.of(),
                         new JobPlanInfo.RawJson(""));
         var metricsCollector = new RestApiMetricsCollector<>();
-        assertEquals(Instant.ofEpochMilli(3L), metricsCollector.getJobRunningTs(details));
+        assertEquals(
+                Instant.ofEpochMilli(3L), metricsCollector.getJobRunningTs(details, null, null));
     }
 
     @Test
