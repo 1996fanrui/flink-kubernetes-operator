@@ -18,7 +18,6 @@
 package org.apache.flink.autoscaler.standalone;
 
 import org.apache.flink.annotation.Experimental;
-import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.autoscaler.JobAutoScaler;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.JobAutoScalerImpl;
@@ -32,8 +31,10 @@ import org.apache.flink.autoscaler.standalone.realizer.RescaleApiScalingRealizer
 import org.apache.flink.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneClientHAServices;
 
+import com.shopee.di.fm.common.configuration.GlobalConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,13 +50,13 @@ public class StandaloneAutoscalerEntrypoint {
 
     public static <KEY, Context extends JobAutoScalerContext<KEY>> void main(String[] args)
             throws Exception {
-        var conf = ParameterTool.fromArgs(args).getConfiguration();
+        var conf = Configuration.fromMap(GlobalConfiguration.getGlobalConfiguration().toMap());
         LOG.info("The standalone autoscaler is started, configuration: {}", conf);
 
         // Initialize JobListFetcher and JobAutoScaler.
         JobListFetcher<KEY, Context> jobListFetcher =
                 (JobListFetcher<KEY, Context>)
-                        new FlinkManagerJobListFetcher(conf.get(FLINK_CLIENT_TIMEOUT));
+                        new FlinkManagerJobListFetcher(new UnmodifiableConfiguration(conf));
 
         AutoScalerStateStore<KEY, Context> stateStore = AutoscalerStateStoreFactory.create(conf);
         AutoScalerEventHandler<KEY, Context> eventHandler =

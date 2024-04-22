@@ -47,6 +47,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.autoscaler.config.AutoScalerOptions.FLINK_CLIENT_TIMEOUT;
+
 /** Fetch JobAutoScalerContext based on flink manager client. */
 public class FlinkManagerJobListFetcher
         implements JobListFetcher<Long, JobAutoScalerContext<Long>> {
@@ -54,12 +56,14 @@ public class FlinkManagerJobListFetcher
     private static final Logger LOG = LoggerFactory.getLogger(StandaloneAutoscalerExecutor.class);
 
     private final FMClient fmClient;
+    private final Configuration baseConf;
     private final Duration restClientTimeout;
     private final CompletionService<List<JobAutoScalerContext<Long>>> cs;
 
-    public FlinkManagerJobListFetcher(Duration restClientTimeout) {
+    public FlinkManagerJobListFetcher(Configuration baseConf) {
         this.fmClient = FMClient.getInstance();
-        this.restClientTimeout = restClientTimeout;
+        this.baseConf = baseConf;
+        this.restClientTimeout = baseConf.get(FLINK_CLIENT_TIMEOUT);
         this.cs =
                 new ExecutorCompletionService<>(
                         Executors.newFixedThreadPool(
@@ -186,7 +190,7 @@ public class FlinkManagerJobListFetcher
                                 EmptyRequestBody.getInstance())
                         .get(restClientTimeout.toSeconds(), TimeUnit.SECONDS);
 
-        var conf = new Configuration();
+        var conf = new Configuration(this.baseConf);
         configurationInfo.forEach(entry -> conf.setString(entry.getKey(), entry.getValue()));
         return conf;
     }

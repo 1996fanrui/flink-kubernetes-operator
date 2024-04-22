@@ -21,6 +21,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.shopee.di.fm.common.configuration.Configuration;
+import com.shopee.di.fm.common.configuration.GlobalConfiguration;
 import com.shopee.di.fm.common.dto.InstanceDTO;
 import com.shopee.di.fm.common.dto.ProjectDTO;
 import com.shopee.di.fm.common.enums.InternalCallerType;
@@ -30,13 +31,10 @@ import com.shopee.di.fm.common.rest.RestParams;
 import com.shopee.di.fm.common.rest.fmclient.FMRestClient;
 import com.shopee.di.fm.common.rest.fmclient.FMRestException;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.shopee.di.fm.common.response.RestResponse.OBJECT_MAPPER;
-import static com.shopee.di.fm.common.rest.fmclient.FMClientOptions.FM_ADDRESS;
-import static com.shopee.di.fm.common.rest.fmclient.FMClientOptions.FM_CONNECTION_TIMEOUT;
 
 /** The client to communicate with Flink Manager rest service. */
 public class FMClient extends FMRestClient {
@@ -46,13 +44,7 @@ public class FMClient extends FMRestClient {
         if (client != null) {
             return client;
         } else {
-            // TODO load the conf from conf file.
-            // FMClient newClient = new FMClient(GlobalConfiguration.getGlobalConfiguration());
-            final Configuration conf = new Configuration();
-            conf.set(FM_ADDRESS, "https://flink.idata.shopeemobile.com");
-            conf.set(FM_CONNECTION_TIMEOUT, Duration.ofSeconds(40));
-
-            FMClient newClient = new FMClient(conf);
+            FMClient newClient = new FMClient(GlobalConfiguration.getGlobalConfiguration());
             if (INSTANCE_HOLDER.compareAndSet(null, newClient)) {
                 return newClient;
             } else {
