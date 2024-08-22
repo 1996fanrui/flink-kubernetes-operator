@@ -17,6 +17,7 @@
 
 package org.apache.flink.autoscaler.state;
 
+import org.apache.flink.autoscaler.DelayedScaleDown;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.ScalingSummary;
 import org.apache.flink.autoscaler.ScalingTracking;
@@ -54,12 +55,15 @@ public class InMemoryAutoScalerStateStore<KEY, Context extends JobAutoScalerCont
 
     private final Map<KEY, ScalingTracking> scalingTrackingStore;
 
+    private final Map<KEY, DelayedScaleDown> delayedScaleDownStore;
+
     public InMemoryAutoScalerStateStore() {
         scalingHistoryStore = new ConcurrentHashMap<>();
         collectedMetricsStore = new ConcurrentHashMap<>();
         parallelismOverridesStore = new ConcurrentHashMap<>();
         scalingTrackingStore = new ConcurrentHashMap<>();
-        tmConfigOverrides = new ConcurrentHashMap<KEY, ConfigChanges>();
+        tmConfigOverrides = new ConcurrentHashMap<>();
+        delayedScaleDownStore = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -141,6 +145,18 @@ public class InMemoryAutoScalerStateStore<KEY, Context extends JobAutoScalerCont
     @Override
     public void removeParallelismOverrides(Context jobContext) {
         parallelismOverridesStore.remove(jobContext.getJobKey());
+    }
+
+    @Override
+    public void storeDelayedScaleDown(Context jobContext, DelayedScaleDown delayedScaleDown) {
+        delayedScaleDownStore.put(jobContext.getJobKey(), delayedScaleDown);
+    }
+
+    @Nonnull
+    @Override
+    public DelayedScaleDown getDelayedScaleDown(Context jobContext) {
+        return Optional.ofNullable(delayedScaleDownStore.get(jobContext.getJobKey()))
+                .orElse(new DelayedScaleDown());
     }
 
     @Override

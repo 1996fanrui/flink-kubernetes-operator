@@ -132,12 +132,16 @@ public class ScalingExecutorTest {
 
         var evaluated = Map.of(op1, evaluated(1, 70, 100));
         var scalingSummary = Map.of(op1, new ScalingSummary(2, 1, evaluated.get(op1)));
-        assertFalse(ScalingExecutor.allVerticesWithinUtilizationTarget(evaluated, scalingSummary));
+        assertFalse(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
+                        evaluated, scalingSummary, scalingSummary.keySet()));
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.2);
         evaluated = Map.of(op1, evaluated(1, 70, 100));
         scalingSummary = Map.of(op1, new ScalingSummary(2, 1, evaluated.get(op1)));
-        assertTrue(ScalingExecutor.allVerticesWithinUtilizationTarget(evaluated, scalingSummary));
+        assertTrue(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
+                        evaluated, scalingSummary, scalingSummary.keySet()));
         assertTrue(getScaledParallelism(stateStore, context).isEmpty());
 
         var op2 = new JobVertexID();
@@ -152,7 +156,9 @@ public class ScalingExecutorTest {
                         op2,
                         new ScalingSummary(1, 2, evaluated.get(op2)));
 
-        assertFalse(ScalingExecutor.allVerticesWithinUtilizationTarget(evaluated, scalingSummary));
+        assertFalse(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
+                        evaluated, scalingSummary, scalingSummary.keySet()));
 
         evaluated =
                 Map.of(
@@ -164,12 +170,16 @@ public class ScalingExecutorTest {
                         new ScalingSummary(1, 2, evaluated.get(op1)),
                         op2,
                         new ScalingSummary(1, 2, evaluated.get(op2)));
-        assertTrue(ScalingExecutor.allVerticesWithinUtilizationTarget(evaluated, scalingSummary));
+        assertTrue(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
+                        evaluated, scalingSummary, scalingSummary.keySet()));
 
         // Test with backlog based scaling
         evaluated = Map.of(op1, evaluated(1, 70, 100, 15));
         scalingSummary = Map.of(op1, new ScalingSummary(1, 2, evaluated.get(op1)));
-        assertFalse(ScalingExecutor.allVerticesWithinUtilizationTarget(evaluated, scalingSummary));
+        assertFalse(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
+                        evaluated, scalingSummary, scalingSummary.keySet()));
     }
 
     @Test
@@ -202,8 +212,8 @@ public class ScalingExecutorTest {
                                 expectedParallelism,
                                 evaluated.getVertexMetrics().get(vertex)));
         assertTrue(
-                ScalingExecutor.allVerticesWithinUtilizationTarget(
-                        evaluated.getVertexMetrics(), scalingSummary));
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
+                        evaluated.getVertexMetrics(), scalingSummary, scalingSummary.keySet()));
 
         // Execute the full scaling path
         var now = Instant.now();
@@ -217,7 +227,13 @@ public class ScalingExecutorTest {
                                 new IOMetrics(10000, 10000, 100)));
         assertFalse(
                 scalingExecutor.scaleResource(
-                        context, evaluated, new HashMap<>(), scalingTracking, now, jobTopology));
+                        context,
+                        evaluated,
+                        new HashMap<>(),
+                        scalingTracking,
+                        now,
+                        jobTopology,
+                        new DelayedScaleDown()));
     }
 
     @Test
@@ -236,6 +252,7 @@ public class ScalingExecutorTest {
                         new VertexInfo(sink, Map.of(filterOperator, HASH), 10, 1000, false, null));
 
         var conf = context.getConfiguration();
+        conf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, Duration.ofSeconds(0));
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, .8);
         var metrics =
                 new EvaluatedMetrics(
@@ -250,6 +267,7 @@ public class ScalingExecutorTest {
         // filter operator should not scale
         conf.set(AutoScalerOptions.VERTEX_EXCLUDE_IDS, List.of(filterOperatorHexString));
         var now = Instant.now();
+        var delayedScaleDown = new DelayedScaleDown();
         assertFalse(
                 scalingExecutor.scaleResource(
                         context,
@@ -257,7 +275,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         // filter operator should scale
         conf.set(AutoScalerOptions.VERTEX_EXCLUDE_IDS, List.of());
         assertTrue(
@@ -267,7 +286,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
     }
 
     @Test
@@ -297,6 +317,7 @@ public class ScalingExecutorTest {
                 new EvaluatedMetrics(
                         Map.of(source, evaluated(10, 110, 100), sink, evaluated(10, 110, 100)),
                         dummyGlobalMetrics);
+        var delayedScaleDown = new DelayedScaleDown();
         assertFalse(
                 scalingExecutor.scaleResource(
                         context,
@@ -304,7 +325,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         // scaling execution outside excluded periods
         excludedPeriod =
                 new StringBuilder(localTime.plusSeconds(100).toString().split("\\.")[0])
@@ -319,7 +341,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
     }
 
     @Test
@@ -347,6 +370,7 @@ public class ScalingExecutorTest {
                                 EvaluatedScalingMetric.of(Double.NaN)));
 
         // Would normally scale without resource usage check
+        var delayedScaleDown = new DelayedScaleDown();
         assertTrue(
                 scalingExecutor.scaleResource(
                         context,
@@ -354,7 +378,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
 
         scalingExecutor =
                 new ScalingExecutor<>(
@@ -379,7 +404,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
     }
 
     @ParameterizedTest
@@ -426,7 +452,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        new DelayedScaleDown()));
         Map<String, String> expected;
         if (memoryTuningEnabled) {
             assertNotEquals(context.getConfiguration(), capturedConfForMaxResources);
@@ -474,6 +501,7 @@ public class ScalingExecutorTest {
     }
 
     private void testScalingEvents(boolean scalingEnabled, Duration interval) throws Exception {
+        var delayedScaleDown = new DelayedScaleDown();
         var jobVertexID = new JobVertexID();
 
         JobTopology jobTopology =
@@ -497,7 +525,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         assertEquals(
                 scalingEnabled,
                 scalingExecutor.scaleResource(
@@ -506,7 +535,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         int expectedSize = (interval == null || interval.toMillis() > 0) && !scalingEnabled ? 1 : 2;
         assertEquals(expectedSize, eventCollector.events.size());
 
@@ -545,7 +575,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         now,
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         var event2 = eventCollector.events.poll();
         assertThat(event2).isNotNull();
         assertThat(event2.getContext()).isSameAs(event.getContext());
@@ -555,6 +586,7 @@ public class ScalingExecutorTest {
 
     @Test
     public void testScalingUnderGcPressure() throws Exception {
+        var delayedScaleDown = new DelayedScaleDown();
         var jobVertexID = new JobVertexID();
         conf.set(AutoScalerOptions.SCALING_ENABLED, true);
         conf.set(AutoScalerOptions.GC_PRESSURE_THRESHOLD, 0.5);
@@ -580,7 +612,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         Instant.now(),
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
 
         // Just below the thresholds
         metrics =
@@ -598,7 +631,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         Instant.now(),
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
 
         eventCollector.events.clear();
 
@@ -618,7 +652,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         Instant.now(),
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         assertEquals("MemoryPressure", eventCollector.events.poll().getReason());
         assertTrue(eventCollector.events.isEmpty());
 
@@ -638,7 +673,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         Instant.now(),
-                        jobTopology));
+                        jobTopology,
+                        delayedScaleDown));
         assertEquals("MemoryPressure", eventCollector.events.poll().getReason());
         assertTrue(eventCollector.events.isEmpty());
     }
@@ -692,7 +728,8 @@ public class ScalingExecutorTest {
                                 new HashMap<>(),
                                 new ScalingTracking(),
                                 now,
-                                jobTopology))
+                                jobTopology,
+                                new DelayedScaleDown()))
                 .isTrue();
 
         Map<String, String> parallelismOverrides = stateStore.getParallelismOverrides(context);
@@ -816,7 +853,8 @@ public class ScalingExecutorTest {
                         new HashMap<>(),
                         new ScalingTracking(),
                         Instant.now(),
-                        jobTopology));
+                        jobTopology,
+                        new DelayedScaleDown()));
         if (quotaReached) {
             assertEquals("ScalingReport", eventCollector.events.poll().getReason());
             assertEquals("ResourceQuotaReached", eventCollector.events.poll().getReason());

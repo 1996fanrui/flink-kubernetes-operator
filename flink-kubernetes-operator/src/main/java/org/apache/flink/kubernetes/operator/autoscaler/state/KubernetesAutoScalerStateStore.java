@@ -18,6 +18,7 @@
 package org.apache.flink.kubernetes.operator.autoscaler.state;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.autoscaler.DelayedScaleDown;
 import org.apache.flink.autoscaler.ScalingSummary;
 import org.apache.flink.autoscaler.ScalingTracking;
 import org.apache.flink.autoscaler.metrics.CollectedMetrics;
@@ -43,6 +44,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
@@ -74,6 +76,8 @@ public class KubernetesAutoScalerStateStore
     protected static final String PARALLELISM_OVERRIDES_KEY = "parallelismOverrides";
 
     protected static final String CONFIG_OVERRIDES_KEY = "configOverrides";
+
+    @VisibleForTesting protected static final String DELAYED_SCALE_DOWN = "delayedScaleDown";
 
     @VisibleForTesting protected static final int MAX_CM_BYTES = 1000000;
 
@@ -222,6 +226,34 @@ public class KubernetesAutoScalerStateStore
     }
 
     @Override
+    public void storeDelayedScaleDown(
+            KubernetesJobAutoScalerContext jobContext, DelayedScaleDown delayedScaleDown)
+            throws Exception {
+        configMapStore.putSerializedState(
+                jobContext, DELAYED_SCALE_DOWN, serializeDelayedScaleDown(delayedScaleDown));
+    }
+
+    @Nonnull
+    @Override
+    public DelayedScaleDown getDelayedScaleDown(KubernetesJobAutoScalerContext jobContext) {
+        Optional<String> delayedScaleDown =
+                configMapStore.getSerializedState(jobContext, DELAYED_SCALE_DOWN);
+        if (delayedScaleDown.isEmpty()) {
+            return new DelayedScaleDown();
+        }
+
+        try {
+            return deserializeDelayedScaleDown(delayedScaleDown.get());
+        } catch (JacksonException e) {
+            LOG.error(
+                    "Could not deserialize delayed scale down, possibly the format changed. Discarding...",
+                    e);
+            configMapStore.removeSerializedState(jobContext, DELAYED_SCALE_DOWN);
+            return new DelayedScaleDown();
+        }
+    }
+
+    @Override
     public void clearAll(KubernetesJobAutoScalerContext jobContext) {
         configMapStore.clearAll(jobContext);
     }
@@ -296,6 +328,18 @@ public class KubernetesAutoScalerStateStore
             LOG.error("Failed to deserialize ConfigOverrides", e);
             return null;
         }
+    }
+
+    private static String serializeDelayedScaleDown(DelayedScaleDown delayedScaleDown)
+            throws JacksonException {
+        return YAML_MAPPER.writeValueAsString(delayedScaleDown.getFirstTriggerTime());
+    }
+
+    private static DelayedScaleDown deserializeDelayedScaleDown(String delayedScaleDown)
+            throws JacksonException {
+        Map<JobVertexID, Instant> firstTriggerTime =
+                YAML_MAPPER.readValue(delayedScaleDown, new TypeReference<>() {});
+        return new DelayedScaleDown(firstTriggerTime);
     }
 
     @VisibleForTesting
