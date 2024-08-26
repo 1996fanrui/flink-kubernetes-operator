@@ -108,6 +108,7 @@ public class KubernetesAutoScalerStateStore
                 jobContext, SCALING_TRACKING_KEY, serializeScalingTracking(scalingTrack));
     }
 
+    @Nonnull
     @Override
     public Map<JobVertexID, SortedMap<Instant, ScalingSummary>> getScalingHistory(
             KubernetesJobAutoScalerContext jobContext) {
@@ -158,6 +159,7 @@ public class KubernetesAutoScalerStateStore
                 jobContext, COLLECTED_METRICS_KEY, serializeEvaluatedMetrics(metrics));
     }
 
+    @Nonnull
     @Override
     public SortedMap<Instant, CollectedMetrics> getCollectedMetrics(
             KubernetesJobAutoScalerContext jobContext) {
@@ -191,6 +193,7 @@ public class KubernetesAutoScalerStateStore
                 serializeParallelismOverrides(parallelismOverrides));
     }
 
+    @Nonnull
     @Override
     public Map<String, String> getParallelismOverrides(KubernetesJobAutoScalerContext jobContext) {
         return configMapStore
