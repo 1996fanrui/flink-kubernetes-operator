@@ -275,12 +275,15 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
                             }
                         });
 
+        // TODO : 4. all tasks with parallelism changing are optional
         // All vertices' ParallelismResult is optional, rescaling will be ignored.
         if (requiredVertices.isEmpty()) {
             return Map.of();
         }
 
-        // TODO : add test for only optional tasks are out of scope.
+        // TODO : 1. add test for only optional tasks are out of scope.
+        // TODO : 2. all task are out of scope.
+        // TODO : 3. one required task is out of scope.
         // If the Utilization of all required tasks is within range, we can skip scaling.
         // It means that if only optional tasks are out of scope, we still need to ignore scale.
         if (allRequiredVerticesWithinUtilizationTarget(

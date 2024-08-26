@@ -38,6 +38,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.SortedMap;
 
 import static org.apache.flink.autoscaler.config.AutoScalerOptions.MAX_SCALE_DOWN_FACTOR;
@@ -87,6 +88,33 @@ public class JobVertexScaler<KEY, Context extends JobAutoScalerContext<KEY>> {
         private ParallelismResult(boolean required, int newParallelism) {
             this.required = required;
             this.newParallelism = newParallelism;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ParallelismResult that = (ParallelismResult) o;
+            return required == that.required && newParallelism == that.newParallelism;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(required, newParallelism);
+        }
+
+        @Override
+        public String toString() {
+            return "ParallelismResult{"
+                    + "required="
+                    + required
+                    + ", newParallelism="
+                    + newParallelism
+                    + '}';
         }
 
         public static ParallelismResult required(int newParallelism) {
@@ -166,7 +194,6 @@ public class JobVertexScaler<KEY, Context extends JobAutoScalerContext<KEY>> {
             return ParallelismResult.optional(currentParallelism);
         }
 
-        // TODO The rescaling may not happen, what happen if we always put it.
         // We record our expectations for this scaling operation
         evaluatedMetrics.put(
                 ScalingMetric.EXPECTED_PROCESSING_RATE,
