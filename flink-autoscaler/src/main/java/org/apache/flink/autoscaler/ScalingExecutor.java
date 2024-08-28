@@ -178,18 +178,16 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
                                                 scalingSummary.getNewParallelism())));
     }
 
-    protected static boolean allRequiredVerticesWithinUtilizationTarget(
+    @VisibleForTesting
+    static boolean allRequiredVerticesWithinUtilizationTarget(
             Map<JobVertexID, Map<ScalingMetric, EvaluatedScalingMetric>> evaluatedMetrics,
-            Map<JobVertexID, ScalingSummary> scalingSummaries,
             Set<JobVertexID> requiredVertices) {
+        // All vertices' ParallelismResult is optional, rescaling will be ignored.
+        if (requiredVertices.isEmpty()) {
+            return true;
+        }
 
-        for (Map.Entry<JobVertexID, ScalingSummary> entry : scalingSummaries.entrySet()) {
-            var vertex = entry.getKey();
-            if (!requiredVertices.contains(vertex)) {
-                // Don't need to check optional vertex.
-                continue;
-            }
-
+        for (JobVertexID vertex : requiredVertices) {
             var metrics = evaluatedMetrics.get(vertex);
 
             double trueProcessingRate = metrics.get(TRUE_PROCESSING_RATE).getAverage();
@@ -275,19 +273,10 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
                             }
                         });
 
-        // TODO : 4. all tasks with parallelism changing are optional
-        // All vertices' ParallelismResult is optional, rescaling will be ignored.
-        if (requiredVertices.isEmpty()) {
-            return Map.of();
-        }
-
-        // TODO : 1. add test for only optional tasks are out of scope.
-        // TODO : 2. all task are out of scope.
-        // TODO : 3. one required task is out of scope.
         // If the Utilization of all required tasks is within range, we can skip scaling.
         // It means that if only optional tasks are out of scope, we still need to ignore scale.
         if (allRequiredVerticesWithinUtilizationTarget(
-                evaluatedMetrics.getVertexMetrics(), out, requiredVertices)) {
+                evaluatedMetrics.getVertexMetrics(), requiredVertices)) {
             return Map.of();
         }
 

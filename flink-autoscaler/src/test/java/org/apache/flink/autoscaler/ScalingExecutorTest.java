@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -82,7 +83,7 @@ public class ScalingExecutorTest {
 
     private Configuration capturedConfForMaxResources;
 
-    private ScalingTracking scalingTracking = new ScalingTracking();
+    private final ScalingTracking scalingTracking = new ScalingTracking();
 
     private static final Map<ScalingMetric, EvaluatedScalingMetric> dummyGlobalMetrics =
             Map.of(
@@ -119,7 +120,7 @@ public class ScalingExecutorTest {
     }
 
     @Test
-    public void testUtilizationBoundaries() throws Exception {
+    public void testUtilizationBoundariesForAllRequiredVertices() throws Exception {
         // Restart time should not affect utilization boundary
         var conf = context.getConfiguration();
         conf.set(AutoScalerOptions.RESTART_TIME, Duration.ZERO);
@@ -131,17 +132,15 @@ public class ScalingExecutorTest {
         conf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.);
 
         var evaluated = Map.of(op1, evaluated(1, 70, 100));
-        var scalingSummary = Map.of(op1, new ScalingSummary(2, 1, evaluated.get(op1)));
         assertFalse(
                 ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
-                        evaluated, scalingSummary, scalingSummary.keySet()));
+                        evaluated, evaluated.keySet()));
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.2);
         evaluated = Map.of(op1, evaluated(1, 70, 100));
-        scalingSummary = Map.of(op1, new ScalingSummary(2, 1, evaluated.get(op1)));
         assertTrue(
                 ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
-                        evaluated, scalingSummary, scalingSummary.keySet()));
+                        evaluated, evaluated.keySet()));
         assertTrue(getScaledParallelism(stateStore, context).isEmpty());
 
         var op2 = new JobVertexID();
@@ -149,37 +148,59 @@ public class ScalingExecutorTest {
                 Map.of(
                         op1, evaluated(1, 70, 100),
                         op2, evaluated(1, 85, 100));
-        scalingSummary =
-                Map.of(
-                        op1,
-                        new ScalingSummary(1, 2, evaluated.get(op1)),
-                        op2,
-                        new ScalingSummary(1, 2, evaluated.get(op2)));
 
         assertFalse(
                 ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
-                        evaluated, scalingSummary, scalingSummary.keySet()));
+                        evaluated, evaluated.keySet()));
 
         evaluated =
                 Map.of(
                         op1, evaluated(1, 70, 100),
                         op2, evaluated(1, 70, 100));
-        scalingSummary =
-                Map.of(
-                        op1,
-                        new ScalingSummary(1, 2, evaluated.get(op1)),
-                        op2,
-                        new ScalingSummary(1, 2, evaluated.get(op2)));
         assertTrue(
                 ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
-                        evaluated, scalingSummary, scalingSummary.keySet()));
+                        evaluated, evaluated.keySet()));
 
         // Test with backlog based scaling
         evaluated = Map.of(op1, evaluated(1, 70, 100, 15));
-        scalingSummary = Map.of(op1, new ScalingSummary(1, 2, evaluated.get(op1)));
         assertFalse(
                 ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
-                        evaluated, scalingSummary, scalingSummary.keySet()));
+                        evaluated, evaluated.keySet()));
+    }
+
+    @Test
+    public void testUtilizationBoundariesWithOptionalVertex() {
+        // Restart time should not affect utilization boundary
+        var conf = context.getConfiguration();
+        conf.set(AutoScalerOptions.RESTART_TIME, Duration.ZERO);
+        conf.set(AutoScalerOptions.CATCH_UP_DURATION, Duration.ZERO);
+        var op1 = new JobVertexID();
+        var op2 = new JobVertexID();
+
+        // All vertices are optional
+        conf.set(AutoScalerOptions.TARGET_UTILIZATION, 0.6);
+        conf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.);
+
+        var evaluated =
+                Map.of(
+                        op1, evaluated(1, 70, 100),
+                        op2, evaluated(1, 85, 100));
+
+        assertTrue(ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(evaluated, Set.of()));
+
+        // One vertex is required, and it's out of range.
+        assertFalse(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(evaluated, Set.of(op1)));
+
+        // One vertex is required, and it's within the range.
+        // The op2 is optional, so it shouldn't affect the scaling even if it is out of range,
+        conf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.1);
+        evaluated =
+                Map.of(
+                        op1, evaluated(1, 65, 100),
+                        op2, evaluated(1, 85, 100));
+        assertTrue(
+                ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(evaluated, Set.of(op1)));
     }
 
     @Test
@@ -203,17 +224,9 @@ public class ScalingExecutorTest {
                         Map.of(vertex, evaluated(parallelism, targetRate, trueProcessingRate)),
                         dummyGlobalMetrics);
 
-        // Verify precondition
-        var scalingSummary =
-                Map.of(
-                        vertex,
-                        new ScalingSummary(
-                                parallelism,
-                                expectedParallelism,
-                                evaluated.getVertexMetrics().get(vertex)));
         assertTrue(
                 ScalingExecutor.allRequiredVerticesWithinUtilizationTarget(
-                        evaluated.getVertexMetrics(), scalingSummary, scalingSummary.keySet()));
+                        evaluated.getVertexMetrics(), evaluated.getVertexMetrics().keySet()));
 
         // Execute the full scaling path
         var now = Instant.now();
