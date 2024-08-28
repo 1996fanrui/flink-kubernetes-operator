@@ -214,8 +214,6 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
             return;
         }
 
-        // TODO
-        //  2. all testings.
         var delayedScaleDown = stateStore.getDelayedScaleDown(ctx);
         var parallelismChanged =
                 scalingExecutor.scaleResource(

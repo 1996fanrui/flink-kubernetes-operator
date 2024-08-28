@@ -109,8 +109,11 @@ public class AutoScalerOptions {
                     .defaultValue(Duration.ofHours(1))
                     .withDeprecatedKeys(autoScalerConfigKey("scale-up.grace-period"))
                     .withFallbackKeys(oldOperatorConfigKey("scale-up.grace-period"))
-                    // TODO
-                    .withDescription("scale down directly if it's less than or equal 0.");
+                    .withDescription(
+                            "The delay time for scale down to be executed. If it is greater than 0, the scale down will be delayed. "
+                                    + "Delayed execution can merge multiple scale downs within scale-down.interval into a scale down, thereby reducing the number of rescales. "
+                                    + "Reducing the frequency of job restarts can improve job availability. "
+                                    + "Scale down can be executed directly if it's less than or equal 0.");
 
     public static final ConfigOption<Integer> VERTEX_MIN_PARALLELISM =
             autoScalerConfig("vertex.min-parallelism")
