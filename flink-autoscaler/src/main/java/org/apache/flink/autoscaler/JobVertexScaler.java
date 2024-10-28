@@ -144,6 +144,7 @@ public class JobVertexScaler<KEY, Context extends JobAutoScalerContext<KEY>> {
             return new ParallelismChange(ParallelismChangeType.REQUIRED_CHANGE, newParallelism);
         }
 
+        // TODO, it seems the optional is not needed anymore.
         public static ParallelismChange optional(int newParallelism) {
             return new ParallelismChange(ParallelismChangeType.OPTIONAL_CHANGE, newParallelism);
         }
@@ -295,15 +296,18 @@ public class JobVertexScaler<KEY, Context extends JobAutoScalerContext<KEY>> {
         var firstTriggerTime = delayedScaleDown.getFirstTriggerTimeForVertex(vertex);
         if (firstTriggerTime.isEmpty()) {
             LOG.info("The scale down of {} is delayed by {}.", vertex, scaleDownInterval);
-            delayedScaleDown.updateTriggerTime(vertex, clock.instant());
-            return ParallelismChange.optional(newParallelism);
+            delayedScaleDown.triggerScaleDown(vertex, clock.instant(), newParallelism);
+            return ParallelismChange.noChange();
         }
+
+        delayedScaleDown.updateParallelism(vertex, newParallelism);
 
         if (clock.instant().isBefore(firstTriggerTime.get().plus(scaleDownInterval))) {
             LOG.debug("Try to skip immediate scale down within scale-down interval for {}", vertex);
-            return ParallelismChange.optional(newParallelism);
+            return ParallelismChange.noChange();
         } else {
-            return ParallelismChange.required(newParallelism);
+            return ParallelismChange.required(
+                    delayedScaleDown.getMaxRecommendedParallelism(vertex));
         }
     }
 

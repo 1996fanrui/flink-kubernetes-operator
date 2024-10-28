@@ -247,7 +247,7 @@ public class KubernetesAutoScalerStateStore
         try {
             return deserializeDelayedScaleDown(delayedScaleDown.get());
         } catch (JacksonException e) {
-            LOG.error(
+            LOG.warn(
                     "Could not deserialize delayed scale down, possibly the format changed. Discarding...",
                     e);
             configMapStore.removeSerializedState(jobContext, DELAYED_SCALE_DOWN);
@@ -334,14 +334,12 @@ public class KubernetesAutoScalerStateStore
 
     private static String serializeDelayedScaleDown(DelayedScaleDown delayedScaleDown)
             throws JacksonException {
-        return YAML_MAPPER.writeValueAsString(delayedScaleDown.getFirstTriggerTime());
+        return YAML_MAPPER.writeValueAsString(delayedScaleDown);
     }
 
     private static DelayedScaleDown deserializeDelayedScaleDown(String delayedScaleDown)
             throws JacksonException {
-        Map<JobVertexID, Instant> firstTriggerTime =
-                YAML_MAPPER.readValue(delayedScaleDown, new TypeReference<>() {});
-        return new DelayedScaleDown(firstTriggerTime);
+        return YAML_MAPPER.readValue(delayedScaleDown, new TypeReference<>() {});
     }
 
     @VisibleForTesting
@@ -409,5 +407,17 @@ public class KubernetesAutoScalerStateStore
         var loaderOptions = new LoaderOptions();
         loaderOptions.setCodePointLimit(20 * 1024 * 1024);
         return YAMLFactory.builder().loaderOptions(loaderOptions).build();
+    }
+
+    public static void main(String[] args) throws Exception {
+        var delayedScaleDown = new DelayedScaleDown();
+        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now(), 2);
+        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now().plusSeconds(10), 3);
+
+        var s = YAML_MAPPER.writeValueAsString(delayedScaleDown);
+        System.out.println(s);
+
+        DelayedScaleDown ddddd = YAML_MAPPER.readValue(s, new TypeReference<>() {});
+        System.out.println(ddddd);
     }
 }

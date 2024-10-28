@@ -643,19 +643,19 @@ public class JobVertexScalerTest {
         // The scale down shouldn't be required.
         vertexScaler.setClock(Clock.fixed(instant, ZoneId.systemDefault()));
         assertParallelismChange(100, 800, 1000, ParallelismChange.optional(80), delayedScaleDown);
-        assertThat(delayedScaleDown.getFirstTriggerTime()).isNotEmpty();
+        assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
         // Within scale down interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(10)), ZoneId.systemDefault()));
         assertParallelismChange(100, 900, 1000, ParallelismChange.optional(90), delayedScaleDown);
-        assertThat(delayedScaleDown.getFirstTriggerTime()).isNotEmpty();
+        assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
         // Allow immediate scale up
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(12)), ZoneId.systemDefault()));
         assertParallelismChange(100, 1700, 1000, ParallelismChange.required(170), delayedScaleDown);
-        assertThat(delayedScaleDown.getFirstTriggerTime()).isEmpty();
+        assertThat(delayedScaleDown.getDelayedVertices()).isEmpty();
     }
 
     @Test
@@ -669,19 +669,19 @@ public class JobVertexScalerTest {
         // The scale down shouldn't be required.
         vertexScaler.setClock(Clock.fixed(instant, ZoneId.systemDefault()));
         assertParallelismChange(100, 800, 1000, ParallelismChange.optional(80), delayedScaleDown);
-        assertThat(delayedScaleDown.getFirstTriggerTime()).isNotEmpty();
+        assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
         // Within scale down interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(10)), ZoneId.systemDefault()));
         assertParallelismChange(100, 900, 1000, ParallelismChange.optional(90), delayedScaleDown);
-        assertThat(delayedScaleDown.getFirstTriggerTime()).isNotEmpty();
+        assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
         // The delayed scale down is canceled when new parallelism is same with current parallelism.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(12)), ZoneId.systemDefault()));
         assertParallelismChange(100, 1000, 1000, ParallelismChange.noChange(), delayedScaleDown);
-        assertThat(delayedScaleDown.getFirstTriggerTime()).isEmpty();
+        assertThat(delayedScaleDown.getDelayedVertices()).isEmpty();
     }
 
     private void assertParallelismChange(
