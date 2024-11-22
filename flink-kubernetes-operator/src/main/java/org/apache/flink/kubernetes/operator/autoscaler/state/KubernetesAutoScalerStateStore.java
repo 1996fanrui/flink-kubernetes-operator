@@ -408,16 +408,4 @@ public class KubernetesAutoScalerStateStore
         loaderOptions.setCodePointLimit(20 * 1024 * 1024);
         return YAMLFactory.builder().loaderOptions(loaderOptions).build();
     }
-
-    public static void main(String[] args) throws Exception {
-        var delayedScaleDown = new DelayedScaleDown();
-        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now(), 2);
-        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now().plusSeconds(10), 3);
-
-        var s = YAML_MAPPER.writeValueAsString(delayedScaleDown);
-        System.out.println(s);
-
-        DelayedScaleDown ddddd = YAML_MAPPER.readValue(s, new TypeReference<>() {});
-        System.out.println(ddddd);
-    }
 }

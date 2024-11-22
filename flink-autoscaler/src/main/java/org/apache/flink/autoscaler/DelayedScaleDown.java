@@ -26,26 +26,26 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import javax.annotation.Nonnull;
+
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** All delayed scale down requests. */
 public class DelayedScaleDown {
 
-    /** The scale down info for vertex. */
+    /** The delayed scale down info for vertex. */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class VertexInfo {
+    public static class VertexDelayedScaleDownInfo {
+        // todo : could we add final for firstTriggerTime?
         private Instant firstTriggerTime;
         private int maxRecommendedParallelism;
     }
 
-    @Getter private final Map<JobVertexID, VertexInfo> delayedVertices;
+    @Getter private final Map<JobVertexID, VertexDelayedScaleDownInfo> delayedVertices;
 
     // Have any scale down request been updated? It doesn't need to be stored, it is only used to
     // determine whether DelayedScaleDown needs to be stored.
@@ -55,49 +55,35 @@ public class DelayedScaleDown {
         this.delayedVertices = new HashMap<>();
     }
 
-    Optional<Instant> getFirstTriggerTimeForVertex(JobVertexID vertex) {
-        return Optional.ofNullable(delayedVertices.get(vertex))
-                .map(VertexInfo::getFirstTriggerTime);
-    }
-
-    int getMaxRecommendedParallelism(JobVertexID vertex) {
+    /** Trigger a scale down, and return the corresponding {@link VertexDelayedScaleDownInfo}. */
+    @Nonnull
+    public VertexDelayedScaleDownInfo triggerScaleDown(
+            JobVertexID vertex, Instant triggerTime, int parallelism) {
         var vertexInfo = delayedVertices.get(vertex);
-        checkState(
-                vertexInfo != null,
-                "The scale down is not triggered for vertex [%s], so maxRecommendedParallelism cannot be got.",
-                vertex);
-        return delayedVertices.get(vertex).getMaxRecommendedParallelism();
-    }
-
-    public void triggerScaleDown(JobVertexID vertex, Instant triggerTime, int parallelism) {
-        checkState(
-                !delayedVertices.containsKey(vertex),
-                "The scale down has been triggered for vertex [%s].",
-                vertex);
-        delayedVertices.put(vertex, new DelayedScaleDown.VertexInfo(triggerTime, parallelism));
-        updated = true;
-    }
-
-    void updateParallelism(JobVertexID vertex, int parallelism) {
-        var vertexInfo = delayedVertices.get(vertex);
-        checkState(
-                vertexInfo != null,
-                "The scale down is not triggered for vertex [%s], so it cannot be updated.",
-                vertex);
-        if (parallelism <= vertexInfo.getMaxRecommendedParallelism()) {
-            return;
+        if (vertexInfo == null) {
+            // It's the first trigger
+            vertexInfo = new VertexDelayedScaleDownInfo(triggerTime, parallelism);
+            delayedVertices.put(vertex, vertexInfo);
+            updated = true;
+        } else if (parallelism > vertexInfo.getMaxRecommendedParallelism()) {
+            // Not the first trigger, but the maxRecommendedParallelism needs to be updated.
+            vertexInfo.setMaxRecommendedParallelism(parallelism);
+            updated = true;
         }
-        vertexInfo.setMaxRecommendedParallelism(parallelism);
-        updated = true;
+
+        return vertexInfo;
     }
 
+    // Clear the delayed scale down for corresponding vertex when the recommended parallelism is
+    // greater than or equal to the currentParallelism.
     void clearVertex(JobVertexID vertex) {
-        VertexInfo removed = delayedVertices.remove(vertex);
+        VertexDelayedScaleDownInfo removed = delayedVertices.remove(vertex);
         if (removed != null) {
             updated = true;
         }
     }
 
+    // Clear all delayed scale down when rescale happens.
     void clearAll() {
         if (delayedVertices.isEmpty()) {
             return;
