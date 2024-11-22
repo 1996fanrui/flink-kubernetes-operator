@@ -99,10 +99,11 @@ public class JobVertexScalerTest {
     public void testParallelismScaling(Collection<ShipStrategy> inputShipStrategies) {
         var op = new JobVertexID();
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 1.);
+        conf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, Duration.ZERO);
         var delayedScaleDown = new DelayedScaleDown();
 
         assertEquals(
-                ParallelismResult.optional(5),
+                ParallelismResult.build(5),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -114,7 +115,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, .8);
         assertEquals(
-                ParallelismResult.optional(8),
+                ParallelismResult.build(8),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -138,7 +139,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, .8);
         assertEquals(
-                ParallelismResult.optional(8),
+                ParallelismResult.build(8),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -149,7 +150,7 @@ public class JobVertexScalerTest {
                         delayedScaleDown));
 
         assertEquals(
-                ParallelismResult.optional(8),
+                ParallelismResult.build(8),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -186,7 +187,7 @@ public class JobVertexScalerTest {
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 1.);
         conf.set(AutoScalerOptions.MAX_SCALE_DOWN_FACTOR, 0.5);
         assertEquals(
-                ParallelismResult.optional(5),
+                ParallelismResult.build(5),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -198,7 +199,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.MAX_SCALE_DOWN_FACTOR, 0.6);
         assertEquals(
-                ParallelismResult.optional(4),
+                ParallelismResult.build(4),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -527,10 +528,11 @@ public class JobVertexScalerTest {
     @Test
     public void testMinParallelismLimitIsUsed() {
         conf.setInteger(AutoScalerOptions.VERTEX_MIN_PARALLELISM, 5);
+        conf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, Duration.ZERO);
         var delayedScaleDown = new DelayedScaleDown();
 
         assertEquals(
-                ParallelismResult.optional(5),
+                ParallelismResult.build(5),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         new JobVertexID(),
@@ -594,42 +596,35 @@ public class JobVertexScalerTest {
     }
 
     @Test
-    public void testRequiredScaleDownAfterInterval() {
+    public void testScaleDownAfterInterval() {
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 1.);
         conf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, Duration.ofMinutes(1));
         var instant = Instant.now();
 
         var delayedScaleDown = new DelayedScaleDown();
 
-        // The scale down shouldn't be required.
+        // The scale down never happen when scale down is first triggered.
         vertexScaler.setClock(Clock.fixed(instant, ZoneId.systemDefault()));
-        assertParallelismChange(100, 800, 1000, ParallelismResult.optional(80), delayedScaleDown);
+        assertParallelismChange(100, 800, 1000, ParallelismResult.noChange(), delayedScaleDown);
 
-        // Within scale down interval.
+        // The scale down never happen within scale down interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(10)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 900, 1000, ParallelismResult.optional(90), delayedScaleDown);
-
-        vertexScaler.setClock(
-                Clock.fixed(instant.plus(Duration.ofSeconds(20)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 820, 1000, ParallelismResult.optional(82), delayedScaleDown);
+        assertParallelismChange(100, 900, 1000, ParallelismResult.noChange(), delayedScaleDown);
 
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(40)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 720, 1000, ParallelismResult.optional(72), delayedScaleDown);
-
-        vertexScaler.setClock(
-                Clock.fixed(instant.plus(Duration.ofSeconds(50)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 600, 1000, ParallelismResult.optional(60), delayedScaleDown);
+        assertParallelismChange(100, 720, 1000, ParallelismResult.noChange(), delayedScaleDown);
 
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(59)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 640, 1000, ParallelismResult.optional(64), delayedScaleDown);
+        assertParallelismChange(100, 640, 1000, ParallelismResult.noChange(), delayedScaleDown);
 
-        // The scale down is required after the scale down interval ends.
+        // The parallelism result should be the max recommended parallelism within the scale down
+        // interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(60)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 700, 1000, ParallelismResult.build(70), delayedScaleDown);
+        assertParallelismChange(100, 700, 1000, ParallelismResult.build(90), delayedScaleDown);
     }
 
     @Test
@@ -640,15 +635,15 @@ public class JobVertexScalerTest {
 
         var delayedScaleDown = new DelayedScaleDown();
 
-        // The scale down shouldn't be required.
+        // The scale down never happen when scale down is first triggered.
         vertexScaler.setClock(Clock.fixed(instant, ZoneId.systemDefault()));
-        assertParallelismChange(100, 800, 1000, ParallelismResult.optional(80), delayedScaleDown);
+        assertParallelismChange(100, 800, 1000, ParallelismResult.noChange(), delayedScaleDown);
         assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
-        // Within scale down interval.
+        // The scale down never happen within scale down interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(10)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 900, 1000, ParallelismResult.optional(90), delayedScaleDown);
+        assertParallelismChange(100, 900, 1000, ParallelismResult.noChange(), delayedScaleDown);
         assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
         // Allow immediate scale up
@@ -666,15 +661,15 @@ public class JobVertexScalerTest {
 
         var delayedScaleDown = new DelayedScaleDown();
 
-        // The scale down shouldn't be required.
+        // The scale down never happen when scale down is first triggered.
         vertexScaler.setClock(Clock.fixed(instant, ZoneId.systemDefault()));
-        assertParallelismChange(100, 800, 1000, ParallelismResult.optional(80), delayedScaleDown);
+        assertParallelismChange(100, 800, 1000, ParallelismResult.noChange(), delayedScaleDown);
         assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
-        // Within scale down interval.
+        // The scale down never happen within scale down interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(10)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 900, 1000, ParallelismResult.optional(90), delayedScaleDown);
+        assertParallelismChange(100, 900, 1000, ParallelismResult.noChange(), delayedScaleDown);
         assertThat(delayedScaleDown.getDelayedVertices()).isNotEmpty();
 
         // The delayed scale down is canceled when new parallelism is same with current parallelism.

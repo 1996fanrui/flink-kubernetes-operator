@@ -40,7 +40,6 @@ public class DelayedScaleDown {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VertexDelayedScaleDownInfo {
-        // todo : could we add final for firstTriggerTime?
         private Instant firstTriggerTime;
         private int maxRecommendedParallelism;
     }
