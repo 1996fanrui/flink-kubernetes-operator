@@ -181,12 +181,12 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
     static boolean allChangedVerticesWithinUtilizationTarget(
             Map<JobVertexID, Map<ScalingMetric, EvaluatedScalingMetric>> evaluatedMetrics,
             Set<JobVertexID> changedVertices) {
-        // No any vertex is changed.
+        // No vertices with changed parallelism.
         if (changedVertices.isEmpty()) {
             return true;
         }
 
-        for (var vertex : changedVertices) {
+        for (JobVertexID vertex : changedVertices) {
             var metrics = evaluatedMetrics.get(vertex);
 
             double trueProcessingRate = metrics.get(TRUE_PROCESSING_RATE).getAverage();

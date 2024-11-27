@@ -64,19 +64,19 @@ public class DelayedScaleDown {
     @Nonnull
     public VertexDelayedScaleDownInfo triggerScaleDown(
             JobVertexID vertex, Instant triggerTime, int parallelism) {
-        var vertexInfo = delayedVertices.get(vertex);
-        if (vertexInfo == null) {
+        var vertexDelayedScaleDownInfo = delayedVertices.get(vertex);
+        if (vertexDelayedScaleDownInfo == null) {
             // It's the first trigger
-            vertexInfo = new VertexDelayedScaleDownInfo(triggerTime, parallelism);
-            delayedVertices.put(vertex, vertexInfo);
+            vertexDelayedScaleDownInfo = new VertexDelayedScaleDownInfo(triggerTime, parallelism);
+            delayedVertices.put(vertex, vertexDelayedScaleDownInfo);
             updated = true;
-        } else if (parallelism > vertexInfo.getMaxRecommendedParallelism()) {
+        } else if (parallelism > vertexDelayedScaleDownInfo.getMaxRecommendedParallelism()) {
             // Not the first trigger, but the maxRecommendedParallelism needs to be updated.
-            vertexInfo.setMaxRecommendedParallelism(parallelism);
+            vertexDelayedScaleDownInfo.setMaxRecommendedParallelism(parallelism);
             updated = true;
         }
 
-        return vertexInfo;
+        return vertexDelayedScaleDownInfo;
     }
 
     // Clear the delayed scale down for corresponding vertex when the recommended parallelism is
