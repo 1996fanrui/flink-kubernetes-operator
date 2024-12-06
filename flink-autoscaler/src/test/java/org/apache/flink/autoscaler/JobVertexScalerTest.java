@@ -103,7 +103,7 @@ public class JobVertexScalerTest {
         var delayedScaleDown = new DelayedScaleDown();
 
         assertEquals(
-                ParallelismChange.build(5),
+                ParallelismChange.build(5, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -115,7 +115,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, .8);
         assertEquals(
-                ParallelismChange.build(8),
+                ParallelismChange.build(8, false),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -139,7 +139,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, .8);
         assertEquals(
-                ParallelismChange.build(8),
+                ParallelismChange.build(8, false),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -150,7 +150,7 @@ public class JobVertexScalerTest {
                         delayedScaleDown));
 
         assertEquals(
-                ParallelismChange.build(8),
+                ParallelismChange.build(8, false),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -162,7 +162,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 0.5);
         assertEquals(
-                ParallelismChange.build(10),
+                ParallelismChange.build(10, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -174,7 +174,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 0.6);
         assertEquals(
-                ParallelismChange.build(4),
+                ParallelismChange.build(4, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -187,7 +187,7 @@ public class JobVertexScalerTest {
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 1.);
         conf.set(AutoScalerOptions.MAX_SCALE_DOWN_FACTOR, 0.5);
         assertEquals(
-                ParallelismChange.build(5),
+                ParallelismChange.build(5, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -199,7 +199,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.MAX_SCALE_DOWN_FACTOR, 0.6);
         assertEquals(
-                ParallelismChange.build(4),
+                ParallelismChange.build(4, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -212,7 +212,7 @@ public class JobVertexScalerTest {
         conf.set(AutoScalerOptions.TARGET_UTILIZATION, 1.);
         conf.set(AutoScalerOptions.MAX_SCALE_UP_FACTOR, 0.5);
         assertEquals(
-                ParallelismChange.build(15),
+                ParallelismChange.build(15, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -224,7 +224,7 @@ public class JobVertexScalerTest {
 
         conf.set(AutoScalerOptions.MAX_SCALE_UP_FACTOR, 0.6);
         assertEquals(
-                ParallelismChange.build(16),
+                ParallelismChange.build(16, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -532,7 +532,7 @@ public class JobVertexScalerTest {
         var delayedScaleDown = new DelayedScaleDown();
 
         assertEquals(
-                ParallelismChange.build(5),
+                ParallelismChange.build(5, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         new JobVertexID(),
@@ -592,7 +592,7 @@ public class JobVertexScalerTest {
 
         var delayedScaleDown = new DelayedScaleDown();
 
-        assertParallelismChange(10, 50, 100, ParallelismChange.build(5), delayedScaleDown);
+        assertParallelismChange(10, 50, 100, ParallelismChange.build(5, true), delayedScaleDown);
     }
 
     @Test
@@ -624,7 +624,8 @@ public class JobVertexScalerTest {
         // interval.
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(60)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 700, 1000, ParallelismChange.build(90), delayedScaleDown);
+        assertParallelismChange(
+                100, 700, 1000, ParallelismChange.build(90, false), delayedScaleDown);
     }
 
     @Test
@@ -649,7 +650,8 @@ public class JobVertexScalerTest {
         // Allow immediate scale up
         vertexScaler.setClock(
                 Clock.fixed(instant.plus(Duration.ofSeconds(12)), ZoneId.systemDefault()));
-        assertParallelismChange(100, 1700, 1000, ParallelismChange.build(170), delayedScaleDown);
+        assertParallelismChange(
+                100, 1700, 1000, ParallelismChange.build(170, true), delayedScaleDown);
         assertThat(delayedScaleDown.getDelayedVertices()).isEmpty();
     }
 
@@ -709,7 +711,7 @@ public class JobVertexScalerTest {
         var delayedScaleDown = new DelayedScaleDown();
 
         assertEquals(
-                ParallelismChange.build(10),
+                ParallelismChange.build(10, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -724,7 +726,7 @@ public class JobVertexScalerTest {
         // Allow to scale higher if scaling was effective (80%)
         evaluated = evaluated(10, 180, 90);
         assertEquals(
-                ParallelismChange.build(20),
+                ParallelismChange.build(20, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -766,7 +768,7 @@ public class JobVertexScalerTest {
         // Allow scale up if current parallelism doesnt match last (user rescaled manually)
         evaluated = evaluated(10, 180, 90);
         assertEquals(
-                ParallelismChange.build(20),
+                ParallelismChange.build(20, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -779,7 +781,7 @@ public class JobVertexScalerTest {
         // Over 10%, effective
         evaluated = evaluated(20, 180, 100);
         assertEquals(
-                ParallelismChange.build(36),
+                ParallelismChange.build(36, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -794,7 +796,7 @@ public class JobVertexScalerTest {
         conf.set(AutoScalerOptions.SCALING_EFFECTIVENESS_DETECTION_ENABLED, false);
         evaluated = evaluated(20, 180, 90);
         assertEquals(
-                ParallelismChange.build(40),
+                ParallelismChange.build(40, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -809,7 +811,7 @@ public class JobVertexScalerTest {
         // Allow scale down even if ineffective
         evaluated = evaluated(20, 45, 90);
         assertEquals(
-                ParallelismChange.build(10),
+                ParallelismChange.build(10, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         op,
@@ -834,7 +836,7 @@ public class JobVertexScalerTest {
         var delayedScaleDown = new DelayedScaleDown();
 
         assertEquals(
-                ParallelismChange.build(10),
+                ParallelismChange.build(10, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         jobVertexID,
@@ -849,7 +851,7 @@ public class JobVertexScalerTest {
         // Effective scale, no events triggered
         evaluated = evaluated(10, 180, 90);
         assertEquals(
-                ParallelismChange.build(20),
+                ParallelismChange.build(20, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         jobVertexID,
@@ -944,7 +946,7 @@ public class JobVertexScalerTest {
         // Test ineffective scaling switched off
         conf.set(AutoScalerOptions.SCALING_EFFECTIVENESS_DETECTION_ENABLED, false);
         assertEquals(
-                ParallelismChange.build(40),
+                ParallelismChange.build(40, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         jobVertexID,
@@ -1091,7 +1093,7 @@ public class JobVertexScalerTest {
         var delayedScaleDown = new DelayedScaleDown();
         // partition limited
         assertEquals(
-                ParallelismChange.build(15),
+                ParallelismChange.build(15, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         jobVertexID,
@@ -1114,7 +1116,7 @@ public class JobVertexScalerTest {
         smallChangesForScaleFactor.put(
                 ScalingMetric.NUM_SOURCE_PARTITIONS, EvaluatedScalingMetric.of(15));
         assertEquals(
-                ParallelismChange.build(15),
+                ParallelismChange.build(15, true),
                 vertexScaler.computeScaleTargetParallelism(
                         context,
                         jobVertexID,
