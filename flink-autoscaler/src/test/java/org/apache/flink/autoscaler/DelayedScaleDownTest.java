@@ -21,6 +21,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,27 +34,37 @@ public class DelayedScaleDownTest {
     @Test
     void testTriggerUpdateAndClean() {
         var instant = Instant.now();
+        var scaleDownInterval = Duration.ofHours(1);
         var delayedScaleDown = new DelayedScaleDown();
         assertThat(delayedScaleDown.isUpdated()).isFalse();
 
         // First trigger time as the trigger time, and it won't be updated.
         assertVertexDelayedScaleDownInfo(
-                delayedScaleDown.triggerScaleDown(vertex, instant, 5), instant, 5);
+                delayedScaleDown.triggerScaleDown(vertex, instant, 5, scaleDownInterval),
+                instant,
+                5);
         assertThat(delayedScaleDown.isUpdated()).isTrue();
 
         // The lower parallelism doesn't update the result
         assertVertexDelayedScaleDownInfo(
-                delayedScaleDown.triggerScaleDown(vertex, instant.plusSeconds(5), 3), instant, 5);
+                delayedScaleDown.triggerScaleDown(
+                        vertex, instant.plusSeconds(5), 3, scaleDownInterval),
+                instant,
+                5);
 
         // The higher parallelism will update the result
         assertVertexDelayedScaleDownInfo(
-                delayedScaleDown.triggerScaleDown(vertex, instant.plusSeconds(10), 8), instant, 8);
+                delayedScaleDown.triggerScaleDown(
+                        vertex, instant.plusSeconds(10), 8, scaleDownInterval),
+                instant,
+                8);
 
         // The scale down could be re-triggered again after clean
         delayedScaleDown.clearVertex(vertex);
         assertThat(delayedScaleDown.getDelayedVertices()).isEmpty();
         assertVertexDelayedScaleDownInfo(
-                delayedScaleDown.triggerScaleDown(vertex, instant.plusSeconds(15), 4),
+                delayedScaleDown.triggerScaleDown(
+                        vertex, instant.plusSeconds(15), 4, scaleDownInterval),
                 instant.plusSeconds(15),
                 4);
 
@@ -61,7 +72,8 @@ public class DelayedScaleDownTest {
         delayedScaleDown.clearAll();
         assertThat(delayedScaleDown.getDelayedVertices()).isEmpty();
         assertVertexDelayedScaleDownInfo(
-                delayedScaleDown.triggerScaleDown(vertex, instant.plusSeconds(15), 2),
+                delayedScaleDown.triggerScaleDown(
+                        vertex, instant.plusSeconds(15), 2, scaleDownInterval),
                 instant.plusSeconds(15),
                 2);
     }

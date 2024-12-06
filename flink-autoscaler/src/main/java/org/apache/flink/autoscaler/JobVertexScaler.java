@@ -278,7 +278,8 @@ public class JobVertexScaler<KEY, Context extends JobAutoScalerContext<KEY>> {
         }
 
         var now = clock.instant();
-        var delayedScaleDownInfo = delayedScaleDown.triggerScaleDown(vertex, now, newParallelism);
+        var delayedScaleDownInfo =
+                delayedScaleDown.triggerScaleDown(vertex, now, newParallelism, scaleDownInterval);
 
         // Never scale down within scale down interval
         if (now.isBefore(delayedScaleDownInfo.getFirstTriggerTime().plus(scaleDownInterval))) {

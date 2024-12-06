@@ -207,8 +207,10 @@ public abstract class AbstractAutoScalerStateStoreTest<
         stateStore.storeScalingTracking(ctx, scalingTracking);
 
         var delayedScaleDown = new DelayedScaleDown();
-        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now(), 10);
-        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now().plusSeconds(10), 12);
+        var scaleDownInterval = Duration.ofHours(1);
+        delayedScaleDown.triggerScaleDown(new JobVertexID(), Instant.now(), 10, scaleDownInterval);
+        delayedScaleDown.triggerScaleDown(
+                new JobVertexID(), Instant.now().plusSeconds(10), 12, scaleDownInterval);
 
         stateStore.storeDelayedScaleDown(ctx, delayedScaleDown);
 
