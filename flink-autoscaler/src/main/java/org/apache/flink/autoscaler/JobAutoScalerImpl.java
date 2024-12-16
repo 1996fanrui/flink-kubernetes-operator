@@ -251,5 +251,7 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
     @VisibleForTesting
     void setClock(Clock clock) {
         this.clock = Preconditions.checkNotNull(clock);
+        this.metricsCollector.setClock(clock);
+        this.scalingExecutor.setClock(clock);
     }
 }

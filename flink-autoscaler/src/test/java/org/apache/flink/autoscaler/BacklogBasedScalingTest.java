@@ -416,7 +416,6 @@ public class BacklogBasedScalingTest {
 
     private void setClocksTo(Instant time) {
         var clock = Clock.fixed(time, ZoneId.systemDefault());
-        metricsCollector.setClock(clock);
         autoscaler.setClock(clock);
     }
 
