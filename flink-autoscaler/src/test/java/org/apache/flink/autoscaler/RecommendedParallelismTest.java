@@ -237,6 +237,25 @@ public class RecommendedParallelismTest {
         assertEquals(4, scaledParallelism.get(sink));
     }
 
+    /**
+     * The scale down won't be executed before scale down interval window is full, and it will use
+     * max parallelism in the past window size when scale down is executed.
+     */
+    @Test
+    void testDelayedScaleDownHappen() {
+
+    }
+
+    // todo :
+    // 1.
+    // 2. The trigger time will be cleaned up, when other tasks scale up
+    // 3. The trigger time will be cleaned up, when other tasks scale down
+    // 4.
+    // 5. All tasks are scaled down within utilization boundary, and scale down could happen after
+    // outside of the boundary.
+    // 6. The triggered scale down will be canceled when parallelism is greater than or equal to the
+    // current p.
+
     private void assertCollectedMetricsSize(int expectedSize) throws Exception {
         assertThat(stateStore.getCollectedMetrics(context)).hasSize(expectedSize);
     }
