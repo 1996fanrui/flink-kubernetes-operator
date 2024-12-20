@@ -88,6 +88,10 @@ public class DelayedScaleDownEndToEndTest {
                                         INITIAL_SINK_PARALLELISM,
                                         4000)));
 
+        var scaleDownInterval = Duration.ofMinutes(60);
+        // The metric window size is 9:59 to avoid other metrics are mixed.
+        var metricWindow = Duration.ofMinutes(9).plus(Duration.ofSeconds(59));
+
         var defaultConf = context.getConfiguration();
         defaultConf.set(AutoScalerOptions.AUTOSCALER_ENABLED, true);
         defaultConf.set(AutoScalerOptions.SCALING_ENABLED, true);
@@ -99,6 +103,8 @@ public class DelayedScaleDownEndToEndTest {
         defaultConf.set(AutoScalerOptions.MAX_SCALE_UP_FACTOR, (double) Integer.MAX_VALUE);
         defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION, 0.8);
         defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.1);
+        defaultConf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, scaleDownInterval);
+        defaultConf.set(AutoScalerOptions.METRICS_WINDOW, metricWindow);
 
         scalingRealizer = new TestingScalingRealizer<>();
         autoscaler =
@@ -118,7 +124,7 @@ public class DelayedScaleDownEndToEndTest {
         running(now);
 
         metricsCollector.updateMetrics(source, buildMetric(0, 800));
-        metricsCollector.updateMetrics(sink, buildMetric(0, 100));
+        metricsCollector.updateMetrics(sink, buildMetric(0, 800));
 
         // the recommended parallelism values are empty initially
         autoscaler.scale(context);
@@ -132,16 +138,85 @@ public class DelayedScaleDownEndToEndTest {
      */
     @Test
     void testDelayedScaleDownHappen() throws Exception {
-        var scaleDownInterval = Duration.ofMinutes(60);
-        // The metric window size is 9:59 to avoid other metrics are mixed.
-        var metricWindow = Duration.ofMinutes(9).plus(Duration.ofSeconds(59));
-
         // The sink busy time list for each window.
         var sinkBusyList = List.of(100, 300, 150, 200, 400, 250, 100);
 
-        var conf = context.getConfiguration();
-        conf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, scaleDownInterval);
-        conf.set(AutoScalerOptions.METRICS_WINDOW, metricWindow);
+        var totalRecords = 0L;
+        int recordsPerMinutes = 4800000;
+
+        for (int windowIndex = 0; windowIndex <= 6; windowIndex++) {
+            for (int i = 1; i <= 10; i++) {
+                now = now.plus(Duration.ofMinutes(1));
+                setClocksTo(now);
+
+                metricsCollector.updateMetrics(source, buildMetric(totalRecords, 800));
+                metricsCollector.updateMetrics(
+                        sink, buildMetric(totalRecords, sinkBusyList.get(windowIndex)));
+
+                autoscaler.scale(context);
+                // Metric window is 10 minutes, so 10 is the maximal metric size.
+                expectedMetricSize = Math.min(expectedMetricSize + 1, 10);
+                assertCollectedMetricsSize(expectedMetricSize);
+
+                // Assert the recommended parallelism.
+                if (windowIndex == 6 && i == 10) {
+                    // The utilization target is 0.8, and busyTimePerSec is 800 ms, so source
+                    // parallelism won't be changed.
+                    assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                            .isEqualTo(INITIAL_SOURCE_PARALLELISM);
+
+                    // Last metric, we expect scale down is executed for sink, and max recommended
+                    // parallelism in the past window should be used.
+                    // The max busy time needs more parallelism than others, so we could compute
+                    // parallelism based on the max busy time.
+                    var maxBusyTime = sinkBusyList.stream().max(Comparator.naturalOrder()).get();
+                    var sinkMaxBusyRatio = 1.0d * maxBusyTime / 1000;
+                    var expectedSinkParallelism =
+                            (int) (INITIAL_SINK_PARALLELISM * sinkMaxBusyRatio / 0.8);
+                    assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
+                            .isEqualTo(expectedSinkParallelism);
+
+                    // Check scaling realizer.
+                    assertThat(scalingRealizer.events).hasSize(1);
+                    var parallelismOverrides =
+                            scalingRealizer.events.poll().getParallelismOverrides();
+                    assertThat(parallelismOverrides)
+                            .containsEntry(
+                                    source.toHexString(),
+                                    Integer.toString(INITIAL_SOURCE_PARALLELISM));
+                    assertThat(parallelismOverrides)
+                            .containsEntry(
+                                    sink.toHexString(), Integer.toString(expectedSinkParallelism));
+                } else {
+                    // Otherwise, scale down cannot be executed.
+                    if (windowIndex == 0 && i <= 9) {
+                        // Metric window is not full, so don't have recommended parallelism.
+                        assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM)).isNull();
+                        assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM)).isNull();
+                    } else {
+                        // Scale down won't be executed before scale down interval window is full.
+                        assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SOURCE_PARALLELISM);
+                        assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SINK_PARALLELISM);
+                    }
+                    assertThat(scalingRealizer.events).isEmpty();
+                }
+
+                totalRecords += recordsPerMinutes;
+            }
+        }
+    }
+
+    /**
+     * Initially, all tasks are scaled down within the utilization bound, and scaling down may only
+     * occur when any task is outside the utilization bound.
+     */
+    @Test
+    void testScaleDownWithInUtilizationBoundary() throws Exception {
+        // The busy time list for each window.
+        var sourceBusyList = List.of(100, 300, 150, 200, 400, 250, 100);
+        var sinkBusyList = List.of(100, 300, 150, 200, 400, 250, 100);
 
         var totalRecords = 0L;
         int recordsPerMinutes = 4800000;
