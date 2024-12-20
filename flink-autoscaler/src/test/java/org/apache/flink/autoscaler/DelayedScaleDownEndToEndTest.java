@@ -102,7 +102,7 @@ public class DelayedScaleDownEndToEndTest {
         defaultConf.set(AutoScalerOptions.MAX_SCALE_DOWN_FACTOR, 1.);
         defaultConf.set(AutoScalerOptions.MAX_SCALE_UP_FACTOR, (double) Integer.MAX_VALUE);
         defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION, 0.8);
-        defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.1);
+        defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.2);
         defaultConf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, scaleDownInterval);
         defaultConf.set(AutoScalerOptions.METRICS_WINDOW, metricWindow);
 
@@ -134,7 +134,8 @@ public class DelayedScaleDownEndToEndTest {
 
     /**
      * The scale down won't be executed before scale down interval window is full, and it will use
-     * max parallelism in the past window size when scale down is executed.
+     * the max recommended parallelism in the past scale down interval window size when scale down
+     * is executed.
      */
     @Test
     void testDelayedScaleDownHappen() throws Exception {
@@ -165,8 +166,9 @@ public class DelayedScaleDownEndToEndTest {
                     assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
                             .isEqualTo(INITIAL_SOURCE_PARALLELISM);
 
-                    // Last metric, we expect scale down is executed for sink, and max recommended
-                    // parallelism in the past window should be used.
+                    // Last metric, we expect scale down is executed for sink, and the max
+                    // recommended parallelism in the past scale down interval window should be
+                    // used.
                     // The max busy time needs more parallelism than others, so we could compute
                     // parallelism based on the max busy time.
                     var maxBusyTime = sinkBusyList.stream().max(Comparator.naturalOrder()).get();
@@ -209,14 +211,17 @@ public class DelayedScaleDownEndToEndTest {
     }
 
     /**
-     * Initially, all tasks are scaled down within the utilization bound, and scaling down may only
-     * occur when any task is outside the utilization bound.
+     * Initially, all tasks are scaled down within the utilization bound, and scaling down only
+     * occurs when any task is outside the utilization bound.
      */
     @Test
     void testScaleDownWithInUtilizationBoundary() throws Exception {
         // The busy time list for each window.
-        var sourceBusyList = List.of(100, 300, 150, 200, 400, 250, 100);
-        var sinkBusyList = List.of(100, 300, 150, 200, 400, 250, 100);
+        // The recommended parallelism is 300 for the ninth metric window, but it doesn't take
+        // effect since it's not the max recommended parallelism in the past scale down interval
+        // window.
+        var sourceBusyList = List.of(800, 700, 720, 750, 730, 720, 700, 710, 300, 700);
+        var sinkBusyList = List.of(800, 800, 800, 800, 800, 800, 800);
 
         var totalRecords = 0L;
         int recordsPerMinutes = 4800000;
@@ -286,12 +291,13 @@ public class DelayedScaleDownEndToEndTest {
     }
 
     // todo :
-    // 1.
+    // 1. [done] The scale down won't be executed before scale down interval window is full
     // 2. The trigger time will be cleaned up, when other tasks scale up
     // 3. The trigger time will be cleaned up, when other tasks scale down
-    // 4.
-    // 5. All tasks are scaled down within utilization boundary, and scale down could happen after
-    // outside of the boundary.
+    // 4. [done] It will use max recommended parallelism in the past window size when scale down is
+    // executed.
+    // 5. [doing] All tasks are scaled down within utilization boundary, and scale down could happen
+    // after outside of the boundary.
     // 6. The triggered scale down will be canceled when parallelism is greater than or equal to the
     // current p.
 
