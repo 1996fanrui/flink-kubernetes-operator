@@ -190,6 +190,12 @@ public class ScalingExecutor<KEY, Context extends JobAutoScalerContext<KEY>> {
         for (JobVertexID vertex : changedVertices) {
             var metrics = evaluatedMetrics.get(vertex);
 
+            int curP;
+            int newP;
+
+            // fullP = newP * 0.8, 即：满载需要多少 p 能恰好被处理?
+            // fullP / curP 在 [0.6, 1.0] 区间内吗?
+
             double trueProcessingRate = metrics.get(TRUE_PROCESSING_RATE).getAverage();
             double scaleUpRateThreshold = metrics.get(SCALE_UP_RATE_THRESHOLD).getCurrent();
             double scaleDownRateThreshold = metrics.get(SCALE_DOWN_RATE_THRESHOLD).getCurrent();
