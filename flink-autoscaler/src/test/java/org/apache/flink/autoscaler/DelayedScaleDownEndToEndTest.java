@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -99,11 +100,12 @@ public class DelayedScaleDownEndToEndTest {
         defaultConf.set(AutoScalerOptions.STABILIZATION_INTERVAL, Duration.ZERO);
         defaultConf.set(AutoScalerOptions.RESTART_TIME, Duration.ofSeconds(0));
         defaultConf.set(AutoScalerOptions.CATCH_UP_DURATION, Duration.ofSeconds(0));
+        defaultConf.set(AutoScalerOptions.VERTEX_MAX_PARALLELISM, 10000);
         defaultConf.set(AutoScalerOptions.SCALING_ENABLED, true);
         defaultConf.set(AutoScalerOptions.MAX_SCALE_DOWN_FACTOR, 1.);
         defaultConf.set(AutoScalerOptions.MAX_SCALE_UP_FACTOR, (double) Integer.MAX_VALUE);
         defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION, UTILIZATION_TARGET);
-        defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.2);
+        defaultConf.set(AutoScalerOptions.TARGET_UTILIZATION_BOUNDARY, 0.1);
         defaultConf.set(AutoScalerOptions.SCALE_DOWN_INTERVAL, scaleDownInterval);
         defaultConf.set(AutoScalerOptions.METRICS_WINDOW, metricWindow);
 
@@ -144,6 +146,132 @@ public class DelayedScaleDownEndToEndTest {
         var sinkBusyList = List.of(350, 300, 150, 200, 400, 250, 100);
 
         scalingWithExpectedBusyTime(sourceBusyList, sinkBusyList);
+    }
+
+    /**
+     * The scale down trigger time will be reset, when other tasks scale up.
+     */
+    @Test
+    void testDelayedScaleDownIsResetWhenAnotherTaskScaleUp() throws Exception {
+        var sourceBusyList = List.of(800, 800, 800, 800, 950);
+        var sinkBusyList = List.of(200, 200, 200, 200, 200);
+
+        var sourceBusyWindow = new LinkedList<Integer>();
+
+        var metricWindowSize = sourceBusyList.size();
+
+        var totalRecords = 0L;
+        int recordsPerMinutes = 4800000;
+
+        for (int windowIndex = 0; windowIndex < metricWindowSize; windowIndex++) {
+            for (int i = 1; i <= 10; i++) {
+                now = now.plus(Duration.ofMinutes(1));
+                setClocksTo(now);
+
+                var busyTimePerSec = sourceBusyList.get(windowIndex);
+                sourceBusyWindow.add(busyTimePerSec);
+                // Poll the oldest metric.
+                if(sourceBusyWindow.size() > 10) {
+                    sourceBusyWindow.pollFirst();
+                }
+
+                metricsCollector.updateMetrics(
+                        source, buildMetric(totalRecords, busyTimePerSec));
+                metricsCollector.updateMetrics(
+                        sink, buildMetric(totalRecords, sinkBusyList.get(windowIndex)));
+
+                autoscaler.scale(context);
+                // Metric window is 10 minutes, so 10 is the maximal metric size.
+                expectedMetricSize = Math.min(expectedMetricSize + 1, 10);
+                assertCollectedMetricsSize(expectedMetricSize);
+
+                // Assert the recommended parallelism.
+                if (windowIndex == 0 && i <= 9) {
+                    // Metric window is not full, so don't have recommended parallelism.
+                    assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM)).isNull();
+                    assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM)).isNull();
+                    assertThat(scalingRealizer.events).isEmpty();
+                } else {
+                    double busyAvg = sourceBusyWindow.stream().mapToInt(e -> e).average().getAsDouble();
+                    if (busyAvg > 900) {
+                        // Scaling up happens for source, and sink cannot be scaled down since the scale down interval window is not reached.
+                        var sourceMaxBusyRatio = busyAvg / 1000;
+                        var expectedSourceParallelism = (int)Math.ceil(INITIAL_SOURCE_PARALLELISM * sourceMaxBusyRatio / UTILIZATION_TARGET);
+                        pollAndAssertScalingRealizer(
+                                expectedSourceParallelism, INITIAL_SINK_PARALLELISM);
+                        // The delayed scale down should be cleaned up after source scales up.
+                        assertThat(stateStore.getDelayedScaleDown(context).getDelayedVertices()).isEmpty();
+                        break;
+                    } else {
+                        // Scale down won't be executed before source utilization within the utilization bound.
+                        assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SOURCE_PARALLELISM);
+                        assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SINK_PARALLELISM);
+                        assertThat(scalingRealizer.events).isEmpty();
+                        assertThat(stateStore.getDelayedScaleDown(context).getDelayedVertices()).isNotEmpty();
+                    }
+                }
+                totalRecords += recordsPerMinutes;
+            }
+        }
+    }
+
+    /**
+     * The scale down trigger time will be reset, when other tasks scale down.
+     */
+    @Test
+    void testDelayedScaleDownIsResetWhenAnotherTaskScaleDown() throws Exception {
+        var sourceBusyList =  List.of(200, 200, 200, 200, 200, 200, 200);
+        var sinkBusyList = List.of(800, 800, 200, 200, 200, 200, 200);
+
+        var metricWindowSize = sourceBusyList.size();
+
+        var totalRecords = 0L;
+        int recordsPerMinutes = 4800000;
+
+        for (int windowIndex = 0; windowIndex < metricWindowSize; windowIndex++) {
+            for (int i = 1; i <= 10; i++) {
+                now = now.plus(Duration.ofMinutes(1));
+                setClocksTo(now);
+
+                metricsCollector.updateMetrics(
+                        source, buildMetric(totalRecords, sourceBusyList.get(windowIndex)));
+                metricsCollector.updateMetrics(
+                        sink, buildMetric(totalRecords, sinkBusyList.get(windowIndex)));
+
+                autoscaler.scale(context);
+                // Metric window is 10 minutes, so 10 is the maximal metric size.
+                expectedMetricSize = Math.min(expectedMetricSize + 1, 10);
+                assertCollectedMetricsSize(expectedMetricSize);
+
+                // Assert the recommended parallelism.
+                if (windowIndex == 0 && i <= 9) {
+                    // Metric window is not full, so don't have recommended parallelism.
+                    assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM)).isNull();
+                    assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM)).isNull();
+                    assertThat(scalingRealizer.events).isEmpty();
+                } else {
+                    if (windowIndex == metricWindowSize - 1 && i == 10) {
+                        // Scaling down happens for source, and sink cannot be scaled down since the scale down interval window is not reached.
+                        var expectedSourceParallelism = getExpectedParallelism(sourceBusyList, INITIAL_SOURCE_PARALLELISM);
+                        pollAndAssertScalingRealizer(
+                                expectedSourceParallelism, INITIAL_SINK_PARALLELISM);
+                        // The delayed scale down should be cleaned up after source scales down.
+                        assertThat(stateStore.getDelayedScaleDown(context).getDelayedVertices()).isEmpty();
+                    } else {
+                        // Scale down won't be executed before source utilization within the utilization bound.
+                        assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SOURCE_PARALLELISM);
+                        assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SINK_PARALLELISM);
+                        assertThat(scalingRealizer.events).isEmpty();
+                        assertThat(stateStore.getDelayedScaleDown(context).getDelayedVertices()).isNotEmpty();
+                    }
+                }
+                totalRecords += recordsPerMinutes;
+            }
+        }
     }
 
     /**
@@ -232,9 +360,8 @@ public class DelayedScaleDownEndToEndTest {
                         .skip(taskBusyList.size() - 6)
                         .max(Comparator.naturalOrder())
                         .get();
-        System.out.println(maxBusyTime);
-        var sinkMaxBusyRatio = 1.0d * maxBusyTime / 1000;
-        return (int) (currentParallelism * sinkMaxBusyRatio / UTILIZATION_TARGET);
+        var maxBusyRatio = 1.0d * maxBusyTime / 1000;
+        return (int) (currentParallelism * maxBusyRatio / UTILIZATION_TARGET);
     }
 
     private void pollAndAssertScalingRealizer(
@@ -256,11 +383,11 @@ public class DelayedScaleDownEndToEndTest {
 
     // todo :
     // 1. [done] The scale down won't be executed before scale down interval window is full
-    // 2. The trigger time will be cleaned up, when other tasks scale up
-    // 3. The trigger time will be cleaned up, when other tasks scale down
+    // 2. [done] The trigger time will be cleaned up, when other tasks scale up
+    // 3. [done] The trigger time will be cleaned up, when other tasks scale down
     // 4. [done] It will use max recommended parallelism in the past window size when scale down is
     // executed.
-    // 5. [doing] All tasks are scaled down within utilization boundary, and scale down could happen
+    // 5. [doing: testScaleDownWithInUtilizationBoundary] All tasks are scaled down within utilization boundary, and scale down could happen
     // after outside of the boundary.
     // 6. The triggered scale down will be canceled when parallelism is greater than or equal to the
     // current p.
