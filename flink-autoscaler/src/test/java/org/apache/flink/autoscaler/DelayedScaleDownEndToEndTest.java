@@ -140,11 +140,129 @@ public class DelayedScaleDownEndToEndTest {
      * is executed.
      */
     @Test
-    void testDelayedScaleDownHappen() throws Exception {
+    void testDelayedScaleDownHappenInLastMetricWindow() throws Exception {
         var sourceBusyList = List.of(800, 800, 800, 800, 800, 800, 800);
         var sinkBusyList = List.of(350, 300, 150, 200, 400, 250, 100);
 
-        scalingHappensInLastMetricWindow(sourceBusyList, sinkBusyList);
+        var metricWindowSize = sourceBusyList.size();
+
+        assertThat(metricWindowSize).isGreaterThan(6);
+
+        var totalRecords = 0L;
+        int recordsPerMinutes = 4800000;
+
+        for (int windowIndex = 0; windowIndex < metricWindowSize; windowIndex++) {
+            for (int i = 1; i <= 10; i++) {
+                now = now.plus(Duration.ofMinutes(1));
+                setClocksTo(now);
+
+                metricsCollector.updateMetrics(
+                        source, buildMetric(totalRecords, sourceBusyList.get(windowIndex)));
+                metricsCollector.updateMetrics(
+                        sink, buildMetric(totalRecords, sinkBusyList.get(windowIndex)));
+
+                autoscaler.scale(context);
+                // Metric window is 10 minutes, so 10 is the maximal metric size.
+                expectedMetricSize = Math.min(expectedMetricSize + 1, 10);
+                assertCollectedMetricsSize(expectedMetricSize);
+
+                // Assert the recommended parallelism.
+                if (windowIndex == metricWindowSize - 1 && i == 10) {
+                    // Last metric, we expect scale down is executed, and max recommended
+                    // parallelism in the past window should be used.
+                    // The max busy time needs more parallelism than others, so we could compute
+                    // parallelism based on the max busy time.
+                    var expectedSourceParallelism =
+                            getExpectedParallelism(sourceBusyList, INITIAL_SOURCE_PARALLELISM);
+                    var expectedSinkParallelism =
+                            getExpectedParallelism(sinkBusyList, INITIAL_SINK_PARALLELISM);
+                    pollAndAssertScalingRealizer(
+                            expectedSourceParallelism, expectedSinkParallelism);
+                } else {
+                    // Otherwise, scale down cannot be executed.
+                    if (windowIndex == 0 && i <= 9) {
+                        // Metric window is not full, so don't have recommended parallelism.
+                        assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM)).isNull();
+                        assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM)).isNull();
+                    } else {
+                        // Scale down won't be executed before scale down interval window is full.
+                        assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                                .as(
+                                        windowIndex
+                                                + "     "
+                                                + i
+                                                + "       "
+                                                + sourceBusyList.get(windowIndex))
+                                .isEqualTo(INITIAL_SOURCE_PARALLELISM);
+                        assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
+                                .isEqualTo(INITIAL_SINK_PARALLELISM);
+                    }
+                    assertThat(scalingRealizer.events).isEmpty();
+                }
+
+                totalRecords += recordsPerMinutes;
+            }
+        }
+    }
+
+    private static List<List<Integer>>
+            sinkParallelismMaxRecommendedParallelismWithinUtilizationBoundaryProvider() {
+        return List.of(
+                List.of(
+                        790, 200, 200, 200, 200, 200, 790, 200, 200, 200, 200, 200, 790, 200, 200,
+                        200, 200, 200, 790, 200, 200, 200, 200, 200, 790, 200, 200, 200, 200, 200,
+                        790),
+                List.of(790, 200, 790, 200, 790, 200, 790, 200, 790, 200, 790, 200, 790, 200, 790));
+    }
+
+    /**
+     * Job never scale down when the max recommended parallelism in the past scale down interval
+     * window is inside the utilization boundary.
+     */
+    @ParameterizedTest
+    @MethodSource("sinkParallelismMaxRecommendedParallelismWithinUtilizationBoundaryProvider")
+    void testScaleDownNeverHappenWhenMaxRecommendedParallelismWithinUtilizationBoundary(
+            List<Integer> sinkBusyList) throws Exception {
+        var metricWindowSize = sinkBusyList.size();
+        var sourceBusyList = Collections.nCopies(metricWindowSize, 800);
+
+        assertThat(sourceBusyList).hasSameSizeAs(sinkBusyList);
+
+        var totalRecords = 0L;
+        int recordsPerMinutes = 4800000;
+
+        for (int windowIndex = 0; windowIndex < metricWindowSize; windowIndex++) {
+            for (int i = 1; i <= 10; i++) {
+                now = now.plus(Duration.ofMinutes(1));
+                setClocksTo(now);
+
+                metricsCollector.updateMetrics(
+                        source, buildMetric(totalRecords, sourceBusyList.get(windowIndex)));
+                metricsCollector.updateMetrics(
+                        sink, buildMetric(totalRecords, sinkBusyList.get(windowIndex)));
+
+                autoscaler.scale(context);
+                // Metric window is 10 minutes, so 10 is the maximal metric size.
+                expectedMetricSize = Math.min(expectedMetricSize + 1, 10);
+                assertCollectedMetricsSize(expectedMetricSize);
+
+                // Assert the recommended parallelism.
+                if (windowIndex == 0 && i <= 9) {
+                    // Metric window is not full, so don't have recommended parallelism.
+                    assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM)).isNull();
+                    assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM)).isNull();
+                } else {
+                    // Scale down won't be executed before scale down interval window is full.
+                    assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                            .isEqualTo(INITIAL_SOURCE_PARALLELISM);
+                    assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
+                            .isEqualTo(INITIAL_SINK_PARALLELISM);
+                }
+                assertThat(scalingRealizer.events).isEmpty();
+
+                totalRecords += recordsPerMinutes;
+            }
+        }
     }
 
     /**
@@ -152,7 +270,7 @@ public class DelayedScaleDownEndToEndTest {
      * occurs when any task is outside the utilization bound.
      */
     @Test
-    void testScaleDownWithInUtilizationBoundary() throws Exception {
+    void testScaleDownUtilizationBoundaryFromWithinToOutside() throws Exception {
         // The busy time list for each window.
         // 由于最终的并行度是 scale down interval window 的最大值，所以只有当 scale down interval 窗口内所有的 busy time 都小于
         //  1000 * (utilization target - utilization bound) 时，scale down 才会被执行。
@@ -215,6 +333,12 @@ public class DelayedScaleDownEndToEndTest {
                     } else {
                         // Scale down won't be executed before scale down interval window is full.
                         assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
+                                .as(
+                                        windowIndex
+                                                + "     "
+                                                + i
+                                                + "       "
+                                                + sourceBusyList.get(windowIndex))
                                 .isEqualTo(INITIAL_SOURCE_PARALLELISM);
                         assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
                                 .isEqualTo(INITIAL_SINK_PARALLELISM);
