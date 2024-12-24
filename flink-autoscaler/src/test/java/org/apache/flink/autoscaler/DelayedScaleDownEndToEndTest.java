@@ -187,12 +187,6 @@ public class DelayedScaleDownEndToEndTest {
                     } else {
                         // Scale down won't be executed before scale down interval window is full.
                         assertThat(getCurrentMetricValue(source, RECOMMENDED_PARALLELISM))
-                                .as(
-                                        windowIndex
-                                                + "     "
-                                                + i
-                                                + "       "
-                                                + sourceBusyList.get(windowIndex))
                                 .isEqualTo(INITIAL_SOURCE_PARALLELISM);
                         assertThat(getCurrentMetricValue(sink, RECOMMENDED_PARALLELISM))
                                 .isEqualTo(INITIAL_SINK_PARALLELISM);
@@ -397,8 +391,7 @@ public class DelayedScaleDownEndToEndTest {
                             sourceBusyWindow.stream().mapToInt(e -> e).average().getAsDouble();
                     if (busyAvg > 900) {
                         // Scaling up happens for source, and the scale down of sink cannot be
-                        // executed
-                        // since the scale down interval window is not full.
+                        // executed since the scale down interval window is not full.
                         var sourceMaxBusyRatio = busyAvg / 1000;
                         var expectedSourceParallelism =
                                 (int)
@@ -466,8 +459,7 @@ public class DelayedScaleDownEndToEndTest {
                 } else {
                     if (windowIndex == metricWindowSize - 1 && i == 10) {
                         // Scaling up happens for source, and the scale down of sink cannot be
-                        // executed
-                        // since the scale down interval window is not full.
+                        // executed since the scale down interval window is not full.
                         var expectedSourceParallelism =
                                 getExpectedParallelism(sourceBusyList, INITIAL_SOURCE_PARALLELISM);
                         pollAndAssertScalingRealizer(
