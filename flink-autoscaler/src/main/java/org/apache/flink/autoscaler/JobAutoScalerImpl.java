@@ -20,6 +20,8 @@ package org.apache.flink.autoscaler;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.autoscaler.config.AutoScalerOptions;
+import org.apache.flink.autoscaler.error.checker.JobUnrecoverableErrorChecker;
+import org.apache.flink.autoscaler.error.checker.NetworkMemoryInsufficientChecker;
 import org.apache.flink.autoscaler.event.AutoScalerEventHandler;
 import org.apache.flink.autoscaler.exceptions.NotReadyException;
 import org.apache.flink.autoscaler.metrics.AutoscalerFlinkMetrics;
@@ -58,6 +60,7 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
     private final AutoScalerEventHandler<KEY, Context> eventHandler;
     private final ScalingRealizer<KEY, Context> scalingRealizer;
     private final AutoScalerStateStore<KEY, Context> stateStore;
+    private final JobUnrecoverableErrorChecker<KEY, Context> unrecoverableErrorChecker;
 
     private Clock clock = Clock.systemDefaultZone();
 
@@ -80,6 +83,7 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
         this.eventHandler = eventHandler;
         this.scalingRealizer = scalingRealizer;
         this.stateStore = stateStore;
+        this.unrecoverableErrorChecker = new NetworkMemoryInsufficientChecker<>();
     }
 
     @Override
@@ -97,6 +101,9 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
             if (ctx.getJobStatus() != JobStatus.RUNNING) {
                 LOG.debug("Autoscaler is waiting for stable, running state");
                 lastEvaluatedMetrics.remove(ctx.getJobKey());
+                if (unrecoverableErrorChecker.check(ctx, null)) {
+                    // roll back
+                }
                 return;
             }
 
