@@ -19,7 +19,6 @@ package org.apache.flink.autoscaler.error.checker;
 
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
-import org.apache.flink.autoscaler.metrics.EvaluatedMetrics;
 
 /**
  * Check whether the job encountered an unrecoverable error.
@@ -34,5 +33,5 @@ public interface JobUnrecoverableErrorChecker<KEY, Context extends JobAutoScaler
      * @return True means job encountered an unrecoverable error, the scaling will be rolled back.
      *     Otherwise, the job ran normally or encountered a recoverable error.
      */
-    boolean check(Context context, EvaluatedMetrics evaluatedMetrics) throws Exception;
+    boolean check(Context context) throws Exception;
 }

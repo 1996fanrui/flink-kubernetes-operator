@@ -30,14 +30,18 @@ import org.apache.flink.autoscaler.realizer.ScalingRealizer;
 import org.apache.flink.autoscaler.state.AutoScalerStateStore;
 import org.apache.flink.autoscaler.tuning.ConfigChanges;
 import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.flink.autoscaler.config.AutoScalerOptions.AUTOSCALER_ENABLED;
@@ -60,7 +64,7 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
     private final AutoScalerEventHandler<KEY, Context> eventHandler;
     private final ScalingRealizer<KEY, Context> scalingRealizer;
     private final AutoScalerStateStore<KEY, Context> stateStore;
-    private final JobUnrecoverableErrorChecker<KEY, Context> unrecoverableErrorChecker;
+    private final List<JobUnrecoverableErrorChecker<KEY, Context>> unrecoverableErrorCheckers;
 
     private Clock clock = Clock.systemDefaultZone();
 
@@ -83,7 +87,7 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
         this.eventHandler = eventHandler;
         this.scalingRealizer = scalingRealizer;
         this.stateStore = stateStore;
-        this.unrecoverableErrorChecker = new NetworkMemoryInsufficientChecker<>();
+        this.unrecoverableErrorCheckers = List.of(new NetworkMemoryInsufficientChecker<>());
     }
 
     @Override
@@ -101,9 +105,9 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
             if (ctx.getJobStatus() != JobStatus.RUNNING) {
                 LOG.debug("Autoscaler is waiting for stable, running state");
                 lastEvaluatedMetrics.remove(ctx.getJobKey());
-                if (unrecoverableErrorChecker.check(ctx, null)) {
-                    // roll back
-                }
+
+                checkAndTryRollbackParallelismToLastOne(ctx);
+
                 return;
             }
 
@@ -246,6 +250,52 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
         } else {
             autoscalerMetrics.incrementBalanced();
         }
+    }
+
+    private void checkAndTryRollbackParallelismToLastOne(Context ctx) throws Exception {
+        var currentParallelismOverrides = stateStore.getParallelismOverrides(ctx);
+        var scalingHistory = stateStore.getScalingHistory(ctx);
+        if (currentParallelismOverrides.isEmpty() || scalingHistory.isEmpty()) {
+            // This job has not been scaled by the autoscaler before, so rollback is not needed.
+            return;
+        }
+
+        for (var checker : unrecoverableErrorCheckers) {
+            if (!checker.check(ctx)) {
+                // No unrecoverable error
+                continue;
+            }
+
+            // Unrecoverable error happens, try to roll back.
+            var overrides = new HashMap<String, String>();
+            var lastScalingTime = findLastScalingTime(scalingHistory);
+
+            for (var entry : currentParallelismOverrides.entrySet()) {
+                var scaling = scalingHistory.get(JobVertexID.fromHexString(entry.getKey()));
+                if (scaling != null && lastScalingTime.equals(scaling.lastKey())) {
+                    // This vertex is changed last time.
+                    overrides.put(
+                            entry.getKey(),
+                            Integer.toString(scaling.get(lastScalingTime).getCurrentParallelism()));
+                } else {
+                    // This vertex is not changed last time, keep it as is.
+                    overrides.put(entry.getKey(), entry.getValue());
+                }
+            }
+
+            stateStore.storeParallelismOverrides(ctx, overrides);
+            stateStore.flush(ctx);
+            return;
+        }
+    }
+
+    /** The max instant is the last scaling time. */
+    private Instant findLastScalingTime(
+            Map<JobVertexID, SortedMap<Instant, ScalingSummary>> scalingHistory) {
+        return scalingHistory.values().stream()
+                .map(SortedMap::lastKey)
+                .max(Instant::compareTo)
+                .orElseThrow();
     }
 
     private void onError(Context ctx, AutoscalerFlinkMetrics autoscalerMetrics, Throwable e) {
