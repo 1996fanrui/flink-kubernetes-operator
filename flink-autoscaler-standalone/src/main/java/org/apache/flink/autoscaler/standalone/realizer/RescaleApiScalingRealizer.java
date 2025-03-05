@@ -19,7 +19,6 @@ package org.apache.flink.autoscaler.standalone.realizer;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.autoscaler.JobAutoScalerContext;
 import org.apache.flink.autoscaler.config.AutoScalerOptions;
 import org.apache.flink.autoscaler.event.AutoScalerEventHandler;
@@ -75,10 +74,6 @@ public class RescaleApiScalingRealizer<KEY, Context extends JobAutoScalerContext
         }
 
         var jobID = context.getJobID();
-        if (JobStatus.RUNNING != context.getJobStatus()) {
-            LOG.warn("Job in terminal or reconciling state cannot be scaled in-place.");
-            return;
-        }
 
         var flinkRestClientTimeout = conf.get(AutoScalerOptions.FLINK_CLIENT_TIMEOUT);
 

@@ -283,6 +283,8 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
                 }
             }
 
+            LOG.info("Rollback the parallelism to {}", overrides);
+
             stateStore.storeParallelismOverrides(ctx, overrides);
             stateStore.flush(ctx);
             return;

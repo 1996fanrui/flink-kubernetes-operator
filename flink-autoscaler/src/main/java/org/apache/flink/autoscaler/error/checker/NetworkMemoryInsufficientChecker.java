@@ -35,7 +35,10 @@ public class NetworkMemoryInsufficientChecker<KEY, Context extends JobAutoScaler
                         .get();
 
         for (var exceptionEntry : aa.getExceptionHistory().getEntries()) {
-            if (exceptionEntry.getStacktrace().contains("Insufficient number of network buffers")) {
+            if (exceptionEntry.getStacktrace().contains("Insufficient number of network buffers")
+                    || exceptionEntry
+                            .getStacktrace()
+                            .contains("Timeout triggered when requesting exclusive buffers")) {
                 LOG.info(
                         "Found Insufficient number of network buffers exception, it's unrecoverable error if job isn't changed.");
                 return true;
