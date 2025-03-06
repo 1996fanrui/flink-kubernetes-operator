@@ -74,6 +74,8 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
     @VisibleForTesting
     final Map<KEY, AutoscalerFlinkMetrics> flinkMetrics = new ConcurrentHashMap<>();
 
+    final Map<KEY, Boolean> rolledBackJobs = new ConcurrentHashMap<>();
+
     public JobAutoScalerImpl(
             ScalingMetricCollector<KEY, Context> metricsCollector,
             ScalingMetricEvaluator evaluator,
@@ -99,6 +101,11 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
                 LOG.debug("Autoscaler is disabled");
                 stateStore.clearAll(ctx);
                 stateStore.flush(ctx);
+                return;
+            }
+
+            if (rolledBackJobs.containsKey(ctx.getJobKey())) {
+                LOG.debug("Autoscaler is paused since this job is rolled back.");
                 return;
             }
 
@@ -134,6 +141,7 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
         metricsCollector.cleanup(ctx.getJobKey());
         lastEvaluatedMetrics.remove(ctx.getJobKey());
         flinkMetrics.remove(ctx.getJobKey());
+        rolledBackJobs.remove(ctx.getJobKey());
         try {
             stateStore.clearAll(ctx);
             stateStore.flush(ctx);
@@ -284,6 +292,8 @@ public class JobAutoScalerImpl<KEY, Context extends JobAutoScalerContext<KEY>>
             }
 
             LOG.info("Rollback the parallelism to {}", overrides);
+
+            rolledBackJobs.put(ctx.getJobKey(), true);
 
             stateStore.storeParallelismOverrides(ctx, overrides);
             stateStore.flush(ctx);
